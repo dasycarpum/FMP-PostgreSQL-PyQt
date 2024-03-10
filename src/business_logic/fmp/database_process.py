@@ -11,10 +11,15 @@ implementation details of data retrieval or database interaction.
 
 """
 
+import os
+from dotenv import load_dotenv
 from sqlalchemy.exc import SQLAlchemyError
 from src.models.base import Session
 from src.services.api import get_jsonparsed_data
 from src.dal.fmp.database_operation import StockManager
+
+load_dotenv()
+API_KEY_FMP = os.getenv('API_KEY_FMP')
 
 class StockService:
     """Service class for managing stock operations."""
@@ -46,7 +51,7 @@ class StockService:
             stock_manager = StockManager(self.db_session)
 
             # Data recovery
-            data = get_jsonparsed_data("https://financialmodelingprep.com/api/v3/stock/list?apikey=API_KEY") # pylint: disable=line-too-long
+            data = get_jsonparsed_data(f"https://financialmodelingprep.com/api/v3/stock/list?apikey={API_KEY_FMP}") # pylint: disable=line-too-long
 
             # Inserting data into the database
             stock_manager.insert_stock_symbols(data)
