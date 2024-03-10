@@ -9,8 +9,10 @@ Created on 2024-03-09
 
 """
 
-from src.models.base import engine, Base
+from src.models.base import engine, Session, Base
 from src.models.fmp.stock import StockSymbol # pylint: disable=unused-import
+from src.business_logic.fmp.database_process import StockService
+
 
 def main():
     """
@@ -32,6 +34,14 @@ def main():
 
     # Creating tables for imported models
     Base.metadata.create_all(engine)
+
+    # Completing tables with FMP data
+    db_session = Session()
+    stock_service = StockService(db_session)
+
+    stock_service.fetch_stock_symbols()
+
+
 
 
 if __name__ == "__main__":
