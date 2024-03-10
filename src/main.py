@@ -9,6 +9,8 @@ Created on 2024-03-09
 
 """
 
+from src.models.base import engine, Base
+from src.models.fmp.stock import StockSymbol # pylint: disable=unused-import
 
 def main():
     """
@@ -28,7 +30,8 @@ def main():
         No exception is raised by this function.
     """
 
-    print("test")
+    # Creating tables for imported models
+    Base.metadata.create_all(engine)
 
 
 if __name__ == "__main__":
