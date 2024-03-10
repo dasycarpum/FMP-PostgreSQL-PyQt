@@ -11,6 +11,7 @@ via SQLAlchemy. These functions are part of the data access logic (DAL).
 
 """
 
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import SQLAlchemyError
 from src.models.base import Session
 from src.models.fmp.stock import StockSymbol
@@ -36,17 +37,18 @@ class StockManager:
         """
         try:
             for item in data:
-                # Create a new StockSymbol instance for each JSON element
-                stock_symbol = StockSymbol(
+                # Create and insert a new StockSymbol instance for each JSON element
+                stmt = insert(StockSymbol).values(
                     symbol=item.get("symbol"),
                     name=item.get("name"),
                     price=item.get("price"),
                     exchange=item.get("exchange"),
-                    exchangeShortName=item.get("exchangeShortName"),
-                    type_=item.get("type_")
+                    exchangeshortname=item.get("exchangeShortName"),
+                    type_=item.get("type")
                 )
-                # Add instance to session
-                self.db_session.add(stock_symbol)
+                # Use insertion with ON CONFLICT DO NOTHING
+                stmt = stmt.on_conflict_do_nothing(index_elements=['symbol'])
+                self.db_session.execute(stmt)
             # Commit all new instances to the database
             self.db_session.commit()
         except SQLAlchemyError as e:
