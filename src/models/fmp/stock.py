@@ -10,8 +10,10 @@ tables in the PostgreSQL database.
 
 """
 
-from sqlalchemy import Column, Integer, String, Float
+from sqlalchemy import Column, Integer, String, Float, Boolean, Date, ForeignKey
+from sqlalchemy.orm import relationship
 from src.models.base import Base
+
 
 class StockSymbol(Base):
     """
@@ -42,6 +44,7 @@ class StockSymbol(Base):
 
     """
     __tablename__ = 'stocksymbol'
+
     id = Column(Integer, primary_key=True)
     symbol = Column(String(20), unique=True, nullable=False)
     exchange = Column(String(35))
@@ -49,3 +52,59 @@ class StockSymbol(Base):
     price = Column(Float)
     name = Column(String(180))
     type_ = Column(String(5))
+
+    company = relationship("CompanyProfile", back_populates="stocksymbol")
+
+
+class CompanyProfile(Base):
+    """
+    Represents the profile of a company associated with a stock symbol.
+
+    Attributes:
+        id (int): Primary key.
+        stock_id (int): Foreign key linking to the StockSymbol table, ensuring
+         a one-to-one relationship.
+        currency (str): The currency in which the company operates.
+        cik (str): The Central Index Key (CIK) assigned by the SEC.
+        isin (str): The International Securities Identification Number.
+        cusip (str): The Committee on Uniform Securities Identification Procedures number.
+        industry (str): The industry sector the company belongs to.
+        website (str): The official website of the company.
+        description (str): A brief description of the company's operations.
+        sector (str): The sector of the economy to which the company contributes.
+        country (str): The country where the company is headquartered.
+        image (str): A URL to an image or logo of the company.
+        ipo_date (datetime.date): The initial public offering date for the company's stock.
+        is_etf (bool): Indicates whether the company is an ETF (Exchange-Traded Fund).
+        is_actively_trading (bool): Indicates whether the company's stock is
+         currently being actively traded.
+        is_adr (bool): Indicates whether the company is an ADR (American Depository Receipt).
+        isf_und (bool): Indicates whether the company is a fund.
+
+    The CompanyProfile model is designed to hold detailed information about 
+    companies associated with stock symbols. It has a one-to-one relationship 
+    with the StockSymbol model, allowing for easy access to stock-related data 
+    alongside company profiles.
+
+    """
+    __tablename__ = 'companyprofile'
+
+    id = Column(Integer, primary_key=True)
+    stock_id = Column(Integer, ForeignKey(StockSymbol.id), unique=True, nullable=False)
+    currency = Column(String(3))
+    cik = Column(String(10))
+    isin = Column(String(12))
+    cusip = Column(String(9))
+    industry = Column(String(60))
+    website = Column(String(255))
+    description = Column(String)
+    sector = Column(String(60))
+    country = Column(String(5))
+    image = Column(String(255))
+    ipo_date = Column(Date)
+    is_etf = Column(Boolean)
+    is_actively_trading = Column(Boolean)
+    is_adr = Column(Boolean)
+    is_fund = Column(Boolean)
+
+    stocksymbol = relationship("StockSymbol", back_populates="company")
