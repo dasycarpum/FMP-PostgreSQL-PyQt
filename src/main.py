@@ -10,7 +10,7 @@ Created on 2024-03-09
 """
 
 from src.models.base import engine, Session, Base
-from src.models.fmp.stock import StockSymbol # pylint: disable=unused-import
+from src.models.fmp.stock import StockSymbol, CompanyProfile # pylint: disable=unused-import
 from src.business_logic.fmp.database_process import StockService
 
 
@@ -39,9 +39,8 @@ def main():
     db_session = Session()
     stock_service = StockService(db_session)
 
-    stock_service.fetch_stock_symbols()
-
-
+    # stock_service.fetch_stock_symbols()
+    stock_service.fetch_company_profiles_for_exchange("Lisbon")
 
 
 if __name__ == "__main__":
