@@ -14,7 +14,7 @@ via SQLAlchemy. These functions are part of the data access logic (DAL).
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import SQLAlchemyError
 from src.models.base import Session
-from src.models.fmp.stock import StockSymbol, CompanyProfile
+from src.models.fmp.stock import StockSymbol, CompanyProfile, DailyChartEOD
 from src.services.date import parse_date
 
 
@@ -137,6 +137,94 @@ class StockManager:
                     print(f"Stock symbol {item.get('symbol')} not found.")
 
             self.db_session.commit()
+        except SQLAlchemyError as e:
+            self.db_session.rollback()  # Rollback in case of error
+            raise RuntimeError(f"Database error occurred: {e}") from e
+        finally:
+            self.db_session.close()
+
+    def insert_daily_chart_data(self, data):
+        """Inserts daily historical stock data into the 'dailychart' table.
+
+        This function processes a data structure that includes a stock symbol 
+        and its associated historical daily data. It first resolves the stock 
+        ID corresponding to the provided symbol from the 'stocksymbol' table. 
+        For each entry in the historical data, the function attempts to insert 
+        it into the 'dailychart' table.
+        In case of a conflict (i.e., an attempt to insert a duplicate entry for 
+        the same stock ID and date), the operation is designed to do nothing, 
+        thus avoiding duplication errors.
+
+        The function commits the transaction if all insertions are successful, 
+        or it rolls back the transaction and closes the database session in 
+        case of an error.
+
+        Args:
+            data (dict): A dictionary containing the stock symbol ('symbol') 
+            and its historical data ('historical'). The 'historical' key should
+            map to a list of dictionaries, each containing the fields:
+            'date', 'open', 'high', 'low', 'close', 'adjClose', 'volume', 
+            'unadjustedVolume', 'change', 'changePercent', and 'vwap'.
+
+            Example:
+            {
+                "symbol": "AAPL",
+                "historical": [
+                    {
+                        "date": "2023-10-06",
+                        "open": 173.8,
+                        "high": 176.61,
+                        ...
+                    },
+                    ...
+                ]
+            }
+
+        Raises:
+            RuntimeError: An error occurred while inserting the data into the 
+            database. The error is caught, the transaction is rolled back, and 
+            the session is closed before re-raising the error with a message.
+
+        """
+        try:
+            # Parse the symbol outside the loop since it's common to all entries
+            symbol = data["symbol"]
+
+            # Find the stock id from the 'stocksymbol' table based on the symbol
+            stock_id_query = self.db_session.query(StockSymbol.id).filter(
+                StockSymbol.symbol == symbol).scalar()
+
+            # Proceed only if the stock symbol exists
+            if stock_id_query:
+                for item in data["historical"]:
+                    # Parse the date field to ensure it matches the Date format in the database
+                    date_parsed = parse_date(item.get("date"))
+
+                    # Prepare the insertion statement with the found stock ID
+                    stmt = insert(DailyChartEOD).values(
+                        stock_id=stock_id_query,
+                        date=date_parsed,
+                        open=item.get("open"),
+                        high=item.get("high"),
+                        low=item.get("low"),
+                        close=item.get("close"),
+                        adj_close=item.get("adjClose"),
+                        volume=item.get("volume"),
+                        unadjusted_volume=item.get("unadjustedVolume"),
+                        change=item.get("change"),
+                        change_percent=item.get("changePercent"),
+                        vwap=item.get("vwap"),
+                    )
+
+                    # Use insertion with ON CONFLICT DO NOTHING to avoid duplicate entries
+                    stmt = stmt.on_conflict_do_nothing(index_elements=['stock_id', 'date'])
+                    self.db_session.execute(stmt)
+
+                self.db_session.commit()
+            else:
+                # Handle case where stock symbol is not found
+                print(f"Stock symbol {symbol} not found.")
+
         except SQLAlchemyError as e:
             self.db_session.rollback()  # Rollback in case of error
             raise RuntimeError(f"Database error occurred: {e}") from e
