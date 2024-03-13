@@ -56,7 +56,8 @@ class StockSymbol(Base):
 
     company = relationship("CompanyProfile", back_populates="stocksymbol")
     daily_charts = relationship("DailyChartEOD", back_populates="stocksymbol")
-    
+    dividends = relationship("HistoricalDividend", back_populates="stocksymbol")
+
 
 class CompanyProfile(Base):
     """
@@ -163,6 +164,53 @@ class DailyChartEOD(Base):
     vwap = Column(Float)
 
     stocksymbol = relationship("StockSymbol", back_populates="daily_charts")
+
+    # Add a unique constraint for stock_id and date
+    __table_args__ = (UniqueConstraint('stock_id', 'date',
+                      name='_stockid_date_uc'),)
+
+class HistoricalDividend(Base):
+    """
+    Represents historical dividend data for a given stock.
+
+    This class is mapped to a table in a database that stores the dividend 
+    information for stocks over time. It includes both adjusted and unadjusted 
+    dividend values, as well as the dates relevant to dividend payments.
+
+    Attributes:
+        id (int): Unique identifier for each record.
+        stock_id (int): The ID of the stock, which is a foreign key that 
+        references the StockSymbol table.
+        date (datetime.date): The date when the dividend was announced.
+        adj_dividend (float, optional): The adjusted dividend value, which 
+        accounts for any corporate actions that may affect the dividend amount. 
+        Defaults to None.
+        dividend (float, optional): The original, unadjusted dividend value. 
+        Defaults to None.
+        payment_date (datetime.date, optional): The date when the dividend is 
+        actually paid to shareholders. Defaults to None.
+
+    Relationships:
+        stocksymbol (relationship): SQLAlchemy `relationship` to the 
+        corresponding `StockSymbol` instance, providing access to the stock 
+        symbol associated with this dividend.
+
+    Constraints:
+        __table_args__ : A unique constraint (_stockid_date_uc) is applied to 
+        the `stock_id` and `date` fields to ensure there are no duplicate 
+        entries for the same stock on the same date.
+
+    """
+    __tablename__ = 'dividend'
+
+    id = Column(Integer, primary_key=True)
+    stock_id = Column(Integer, ForeignKey(StockSymbol.id), nullable=False)
+    date = Column(Date, nullable=False)
+    adj_dividend = Column(Float)
+    dividend = Column(Float)
+    payment_date = Column(Date)
+
+    stocksymbol = relationship("StockSymbol", back_populates="dividends")
 
     # Add a unique constraint for stock_id and date
     __table_args__ = (UniqueConstraint('stock_id', 'date',
