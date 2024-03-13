@@ -14,7 +14,8 @@ via SQLAlchemy. These functions are part of the data access logic (DAL).
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import SQLAlchemyError
 from src.models.base import Session
-from src.models.fmp.stock import StockSymbol, CompanyProfile, DailyChartEOD
+from src.models.fmp.stock import (StockSymbol, CompanyProfile, DailyChartEOD,
+    HistoricalDividend)
 from src.services.date import parse_date
 
 
@@ -214,6 +215,77 @@ class StockManager:
                         change=item.get("change"),
                         change_percent=item.get("changePercent"),
                         vwap=item.get("vwap"),
+                    )
+
+                    # Use insertion with ON CONFLICT DO NOTHING to avoid duplicate entries
+                    stmt = stmt.on_conflict_do_nothing(index_elements=['stock_id', 'date'])
+                    self.db_session.execute(stmt)
+
+                self.db_session.commit()
+            else:
+                # Handle case where stock symbol is not found
+                print(f"Stock symbol {symbol} not found.")
+
+        except SQLAlchemyError as e:
+            self.db_session.rollback()  # Rollback in case of error
+            raise RuntimeError(f"Database error occurred: {e}") from e
+        finally:
+            self.db_session.close()
+
+    def insert_historical_dividend(self, data):
+        """Inserts historical dividend data for a specified stock symbol into the database.
+
+        This function processes a given dataset containing the stock symbol and 
+        its historical dividend data. For each item in the dataset, it checks 
+        if the stock symbol exists in the database. If so, it inserts the 
+        dividend data while avoiding duplicates through the use of an 'on 
+        conflict do nothing' strategy. The function ensures transaction 
+        integrity by committing all successful operations or rolling back in 
+        case of an error. It also handles the lifecycle of the database session.
+
+        Args:
+            data (dict): A dictionary containing the stock symbol and its historical dividend data.
+            The expected format is:
+            {
+                "symbol": "StockSymbol",
+                "historical": [
+                    {
+                        "date": "YYYY-MM-DD",
+                        "adjDividend": float,
+                        "dividend": float,
+                        "paymentDate": "YYYY-MM-DD"
+                    },
+                    ...
+                ]
+            }
+
+        Raises:
+            RuntimeError: An error occurred during database operations. The 
+            specific error is logged, and the database transaction is rolled back.
+
+        """
+        try:
+            # Parse the symbol outside the loop since it's common to all entries
+            symbol = data["symbol"]
+
+            # Find the stock id from the 'stocksymbol' table based on the symbol
+            stock_id_query = self.db_session.query(StockSymbol.id).filter(
+                StockSymbol.symbol == symbol).scalar()
+
+            # Proceed only if the stock symbol exists
+            if stock_id_query:
+                for item in data["historical"]:
+                    # Parse the date field to ensure it matches the Date format in the database
+                    date_parsed = parse_date(item.get("date"))
+                    payment_date_parsed = parse_date(item.get("paymentDate"))
+
+                    # Prepare the insertion statement with the found stock ID
+                    stmt = insert(HistoricalDividend).values(
+                        stock_id=stock_id_query,
+                        date=date_parsed,
+                        adj_dividend=item.get("adjDividend"),
+                        dividend=item.get("dividend"),
+                        payment_date=payment_date_parsed,
                     )
 
                     # Use insertion with ON CONFLICT DO NOTHING to avoid duplicate entries
