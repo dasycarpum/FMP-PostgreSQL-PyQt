@@ -189,3 +189,47 @@ class StockService:
         except Exception as e:
             raise RuntimeError(
                 f"Failed to update historical dividend due to an unexpected error: {e}") from e
+
+    def fetch_historical_key_metrics(self, symbol: str,
+        period: str = 'quarter') -> None:
+        """
+        Fetches historical key metrics for a given stock symbol and inserts 
+        them into the database.
+
+        This function retrieves financial metrics for a specified stock symbol 
+        for a given period ('quarter' by default). It uses an external API to 
+        fetch the data, then processes and inserts the fetched data into the 
+        database using the `StockManager` class. The function handles both
+        SQLAlchemy errors related to database operations and general exceptions 
+        that may occur during the data fetching process.
+
+        Args:
+            symbol (str): The stock symbol for which historical key metrics are 
+            to be fetched.
+            period (str): The period for which the data should be fetched. 
+            Defaults to 'quarter'. Other option : 'annual'  
+
+        Raises:
+            RuntimeError: If a database error occurs during the operation. The 
+            error message includes the original error for debugging purposes.
+            RuntimeError: If an unexpected error occurs during the data 
+            fetching or insertion process. The error message includes the 
+            original error for further investigation.
+            
+        """
+        try:
+            # Initialize StockManager with the database session
+            stock_manager = StockManager(self.db_session)
+
+            # Data recovery
+            data = get_jsonparsed_data(f"https://financialmodelingprep.com/api/v3/key-metrics/{symbol}?period={period}&apikey={API_KEY_FMP}") # pylint: disable=line-too-long
+
+            # Inserting data into the database
+            stock_manager.insert_historical_key_metrics(data)
+
+        except SQLAlchemyError as e:
+            raise RuntimeError(
+                f"Failed to update historical key metrics due to database error: {e}") from e
+        except Exception as e:
+            raise RuntimeError(
+                f"Failed to update historical key metrics due to an unexpected error: {e}") from e
