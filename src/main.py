@@ -36,8 +36,10 @@ def main():
     # Creating tables for imported models
     Base.metadata.create_all(engine)
 
-    # Hypertable (TimeScaleDB)
-    convert_stock_table_to_hypertable('dailychart')
+    # Converting in hypertable (TimeScaleDB)
+    hypertable_candidates = ['dailychart', 'dividend']
+    for table in hypertable_candidates:
+        convert_stock_table_to_hypertable(table)
 
     # Completing tables with FMP data
     db_session = Session()
@@ -45,8 +47,10 @@ def main():
 
     # stock_service.fetch_stock_symbols()
     # stock_service.fetch_company_profiles_for_exchange("Lisbon")
-    stock_service.fetch_daily_chart_for_period("AAPL",
-                                               "1990-01-01", "1995-01-01")
+    symbols = ['AAPL', 'MSFT']
+    for symbol in symbols:
+        stock_service.fetch_daily_chart_for_period(symbol, "1990-01-01", "1995-01-01")
+        stock_service.fetch_historical_dividend(symbol)
 
 
 if __name__ == "__main__":

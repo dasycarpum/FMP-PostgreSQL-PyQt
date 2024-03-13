@@ -142,7 +142,7 @@ class DailyChartEOD(Base):
         symbol associated with this quotation.
     
     Constraints:
-        __table_args__: A unique constraint (`_stockid_date_uc`) ensuring that 
+        __table_args__: A unique constraint (`_char_stockid_date_uc`) ensuring that 
         there can be only one quotation entry per stock per day, combining 
         `stock_id` and `date`.
 
@@ -167,7 +167,7 @@ class DailyChartEOD(Base):
 
     # Add a unique constraint for stock_id and date
     __table_args__ = (UniqueConstraint('stock_id', 'date',
-                      name='_stockid_date_uc'),)
+                      name='_chart_stockid_date_uc'),)
 
 class HistoricalDividend(Base):
     """
@@ -196,7 +196,7 @@ class HistoricalDividend(Base):
         symbol associated with this dividend.
 
     Constraints:
-        __table_args__ : A unique constraint (_stockid_date_uc) is applied to 
+        __table_args__ : A unique constraint (_dividend_stockid_date_uc) is applied to 
         the `stock_id` and `date` fields to ensure there are no duplicate 
         entries for the same stock on the same date.
 
@@ -214,4 +214,4 @@ class HistoricalDividend(Base):
 
     # Add a unique constraint for stock_id and date
     __table_args__ = (UniqueConstraint('stock_id', 'date',
-                      name='_stockid_date_uc'),)
+                      name='_dividend_stockid_date_uc'),)
