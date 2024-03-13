@@ -152,3 +152,40 @@ class StockService:
         except Exception as e:
             raise RuntimeError(
                 f"Failed to update daily chart due to an unexpected error: {e}") from e
+
+    def fetch_historical_dividend(self, symbol: str) -> None:
+        """Fetches and stores historical dividend data for a specified stock symbol.
+
+        This function retrieves historical dividend data for a given stock 
+        symbol by making an external API call. The retrieved data is then 
+        inserted into the database using the `StockManager` class. The function 
+        is designed to handle any exceptions that occur during the database 
+        operation or data retrieval process, ensuring that any errors are 
+        properly reported.
+
+        Args:
+            symbol (str): The stock symbol for which to fetch historical dividend data.
+
+        Raises:
+            RuntimeError: An error occurred during the database operation or 
+            while fetching the data from the external API. The error is logged 
+            with a message specifying whether it was a database error or an 
+            unexpected error.
+
+        """
+        try:
+            # Initialize StockManager with the database session
+            stock_manager = StockManager(self.db_session)
+
+            # Data recovery
+            data = get_jsonparsed_data(f"https://financialmodelingprep.com/api/v3/historical-price-full/stock_dividend/{symbol}?apikey={API_KEY_FMP}") # pylint: disable=line-too-long
+
+            # Inserting data into the database
+            stock_manager.insert_historical_dividend(data)
+
+        except SQLAlchemyError as e:
+            raise RuntimeError(
+                f"Failed to update historical dividend due to database error: {e}") from e
+        except Exception as e:
+            raise RuntimeError(
+                f"Failed to update historical dividend due to an unexpected error: {e}") from e
