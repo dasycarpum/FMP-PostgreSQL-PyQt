@@ -10,7 +10,8 @@ tables in the PostgreSQL database.
 
 """
 
-from sqlalchemy import Column, Integer, String, Float, Boolean, Date, ForeignKey
+from sqlalchemy import (Column, Integer, BigInteger, String, Float, Boolean,
+                        Date, ForeignKey, UniqueConstraint)
 from sqlalchemy.orm import relationship
 from src.models.base import Base
 
@@ -108,3 +109,60 @@ class CompanyProfile(Base):
     is_fund = Column(Boolean)
 
     stocksymbol = relationship("StockSymbol", back_populates="company")
+
+class DailyChartEOD(Base):
+    """
+    Represents daily quote data for a stock symbol.
+
+    Each instance of this class corresponds to a single daily quotation record
+    for a specific stock symbol, including information such as opening price
+    opening price, closing price, volume, etc.
+
+    Attributes:
+        id (BigInteger): Unique record identifier.
+        stock_id (Integer): Foreign key to the associated stock symbol.
+        date (Date): Date of quotation.
+        open (Float): Quotation opening price.
+        high (Float): Highest price reached during the day.
+        low (Float): Lowest price reached during the day.
+        close (Float): Quotation closing price.
+        adjclose (Float): Adjusted closing price, taking into account corporate
+            such as splits.
+        volume (BigInteger): Total volume of shares traded during the day.
+        unadjusted_volume (BigInteger): Total volume of shares traded without adjustments.
+        change (Float): Change in price from previous day.
+        change_percent (Float): Percentage change in price from previous day.
+        vwap (Float): Volume-weighted average price.
+    
+    Relationships:
+        stocksymbol (relationship): SQLAlchemy `relationship` to the 
+        corresponding `StockSymbol` instance, providing access to the stock 
+        symbol associated with this quotation.
+    
+    Constraints:
+        __table_args__: A unique constraint (`_stockid_date_uc`) ensuring that 
+        there can be only one quotation entry per stock per day, combining 
+        `stock_id` and `date`.
+
+    """
+    __tablename__ = 'dailychart'
+
+    id = Column(BigInteger, primary_key=True)
+    stock_id = Column(Integer, ForeignKey(StockSymbol.id), nullable=False)
+    date = Column(Date, nullable=False)
+    open = Column(Float)
+    high = Column(Float)
+    low = Column(Float)
+    close = Column(Float)
+    adj_close = Column(Float)
+    volume = Column(BigInteger)
+    unadjusted_volume = Column(BigInteger)
+    change = Column(Float)
+    change_percent = Column(Float)
+    vwap = Column(Float)
+
+    stocksymbol = relationship("StockSymbol", back_populates="daily_charts")
+
+    # Add a unique constraint for stock_id and date
+    __table_args__ = (UniqueConstraint('stock_id', 'date',
+                      name='_stockid_date_uc'),)
