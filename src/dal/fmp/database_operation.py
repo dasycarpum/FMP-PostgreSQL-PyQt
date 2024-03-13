@@ -15,7 +15,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import SQLAlchemyError
 from src.models.base import Session
 from src.models.fmp.stock import (StockSymbol, CompanyProfile, DailyChartEOD,
-    HistoricalDividend)
+    HistoricalDividend, HistoricalKeyMetrics)
 from src.services.date import parse_date
 
 
@@ -296,6 +296,153 @@ class StockManager:
             else:
                 # Handle case where stock symbol is not found
                 print(f"Stock symbol {symbol} not found.")
+
+        except SQLAlchemyError as e:
+            self.db_session.rollback()  # Rollback in case of error
+            raise RuntimeError(f"Database error occurred: {e}") from e
+        finally:
+            self.db_session.close()
+
+    def insert_historical_key_metrics(self, data):
+        """
+        Inserts historical key financial metrics for stocks into the database.
+        
+        This function iterates over a list of dictionaries, each representing 
+        financial metrics for a stock on a specific date. It checks if the 
+        stock symbol exists in the 'StockSymbol' table and inserts the metrics 
+        into the 'HistoricalKeyMetrics' table if so. The function avoids 
+        inserting duplicate data using an 'ON CONFLICT DO NOTHING' strategy. If 
+        the stock symbol is not found in the 'StockSymbol' table, it reports 
+        this. The function manages database transactions, committing on success 
+        or rolling back in case of an error.
+
+        Args:
+            data (list of dict): A list where each dictionary contains the 
+            stock symbol, date, calendar year, period, and various financial 
+            metrics such as revenuePerShare, netIncomePerShare, etc.
+
+        Raises:
+            RuntimeError: If a database error occurs during the operation. The 
+            error message includes the original error for debugging purposes.
+
+        Example usage:
+            insert_historical_key_metrics([
+                {
+                    "symbol": "AAPL",
+                    "date": "2023-12-30",
+                    "calendarYear": "2024",
+                    "period": "Q1",
+                    "revenuePerShare": 7.6765587651407,
+                    "netIncomePerShare": 2.177362885875074,
+                    "operatingCashFlowPerShare": 2.561206873805463,
+                    "freeCashFlowPerShare": 2.407643599155941,
+                    "cashPerShare": 4.6929244886622214,
+                    ...
+                },
+                ...
+            ])
+        """
+        try:
+            for item in data:  # Iterate over each item in the input data list
+                symbol = item["symbol"]
+                date_parsed = parse_date(item["date"])
+
+                # Find the stock id from the 'stocksymbol' table based on the symbol
+                stock_id_query = self.db_session.query(StockSymbol.id).filter(
+                    StockSymbol.symbol == symbol).scalar()
+
+                # Proceed only if the stock symbol exists
+                if stock_id_query:
+                    # Prepare the insertion statement with the found stock ID and parsed data
+                    stmt = insert(HistoricalKeyMetrics).values(
+                        stock_id=stock_id_query,
+                        date=date_parsed,
+                        calendar_year=item.get("calendarYear"),
+                        period=item.get("period"),
+                        revenue_per_share=item.get("revenuePerShare"),
+                        net_income_per_share=item.get("netIncomePerShare"),
+                        operating_cash_flow_per_share=item.get(
+                            "operatingCashFlowPerShare"),
+                        free_cash_flow_per_share=item.get(
+                            "freeCashFlowPerShare"),
+                        cash_per_share=item.get("cashPerShare"),
+                        book_value_per_share=item.get("bookValuePerShare"),
+                        tangible_book_value_per_share=item.get(
+                            "tangibleBookValuePerShare"),
+                        shareholders_equity_per_share=item.get(
+                            "shareholdersEquityPerShare"),
+                        interest_debt_per_share=item.get(
+                            "interestDebtPerShare"),
+                        market_cap=item.get("marketCap"),
+                        enterprise_value=item.get("enterpriseValue"),
+                        pe_ratio=item.get("peRatio"),
+                        price_to_sales_ratio=item.get("priceToSalesRatio"),
+                        pocf_ratio=item.get("pocfRatio"),
+                        pfcf_ratio=item.get("pfcfRatio"),
+                        pb_ratio=item.get("pbRatio"),
+                        ptb_ratio=item.get("ptbRatio"),
+                        ev_to_sales=item.get("evToSales"),
+                        enterprise_value_over_ebitda=item.get(
+                            "enterpriseValueOverEBITDA"),
+                        ev_to_operating_cash_flow=item.get(
+                            "evToOperatingCashFlow"),
+                        ev_to_free_cash_flow=item.get("evToFreeCashFlow"),
+                        earnings_yield=item.get("earningsYield"),
+                        free_cash_flow_yield=item.get("freeCashFlowYield"),
+                        debt_to_equity=item.get("debtToEquity"),
+                        debt_to_assets=item.get("debtToAssets"),
+                        net_debt_to_ebitda=item.get("netDebtToEBITDA"),
+                        current_ratio=item.get("currentRatio"),
+                        interest_coverage=item.get("interestCoverage"),
+                        income_quality=item.get("incomeQuality"),
+                        dividend_yield=item.get("dividendYield"),
+                        payout_ratio=item.get("payoutRatio"),
+                        sales_general_and_administrative_to_revenue=item.get(
+                            "salesGeneralAndAdministrativeToRevenue"),
+                        research_and_development_to_revenue=item.get(
+                            "researchAndDevelopmentToRevenue"),
+                        intangibles_to_total_assets=item.get(
+                            "intangiblesToTotalAssets"),
+                        capex_to_operating_cash_flow=item.get(
+                            "capexToOperatingCashFlow"),
+                        capex_to_revenue=item.get("capexToRevenue"),
+                        capex_to_depreciation=item.get("capexToDepreciation"),
+                        stock_based_compensation_to_revenue=item.get(
+                            "stockBasedCompensationToRevenue"),
+                        graham_number=item.get("grahamNumber"),
+                        roic=item.get("roic"),
+                        return_on_tangible_assets=item.get(
+                            "returnOnTangibleAssets"),
+                        graham_net_net=item.get("grahamNetNet"),
+                        working_capital=item.get("workingCapital"),
+                        tangible_asset_value=item.get("tangibleAssetValue"),
+                        net_current_asset_value=item.get(
+                            "netCurrentAssetValue"),
+                        invested_capital=item.get("investedCapital"),
+                        average_receivables=item.get("averageReceivables"),
+                        average_payables=item.get("averagePayables"),
+                        average_inventory=item.get("averageInventory"),
+                        days_sales_outstanding=item.get("daysSalesOutstanding"),
+                        days_payables_outstanding=item.get(
+                            "daysPayablesOutstanding"),
+                        days_of_inventory_on_hand=item.get(
+                            "daysOfInventoryOnHand"),
+                        receivables_turnover=item.get("receivablesTurnover"),
+                        payables_turnover=item.get("payablesTurnover"),
+                        inventory_turnover=item.get("inventoryTurnover"),
+                        roe=item.get("roe"),
+                        capex_per_share=item.get("capexPerShare")
+                    )
+
+                    # Use insertion with ON CONFLICT DO NOTHING to avoid duplicate entries
+                    stmt = stmt.on_conflict_do_nothing(index_elements=['stock_id', 'date'])
+                    self.db_session.execute(stmt)
+
+                else:
+                    # Handle case where stock symbol is not found
+                    print(f"Stock symbol {symbol} not found.")
+
+            self.db_session.commit()
 
         except SQLAlchemyError as e:
             self.db_session.rollback()  # Rollback in case of error
