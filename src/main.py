@@ -37,7 +37,7 @@ def main():
     Base.metadata.create_all(engine)
 
     # Converting in hypertable (TimeScaleDB)
-    hypertable_candidates = ['dailychart', 'dividend']
+    hypertable_candidates = ['dailychart', 'dividend', 'keymetrics']
     for table in hypertable_candidates:
         convert_stock_table_to_hypertable(table)
 
@@ -49,8 +49,9 @@ def main():
     # stock_service.fetch_company_profiles_for_exchange("Lisbon")
     symbols = ['AAPL', 'MSFT']
     for symbol in symbols:
-        stock_service.fetch_daily_chart_for_period(symbol, "1990-01-01", "1995-01-01")
-        stock_service.fetch_historical_dividend(symbol)
+        # stock_service.fetch_daily_chart_for_period(symbol, "1990-01-01", "1995-01-01")
+        # stock_service.fetch_historical_dividend(symbol)
+        stock_service.fetch_historical_key_metrics(symbol)
 
 
 if __name__ == "__main__":
