@@ -55,7 +55,8 @@ class StockSymbol(Base):
     type_ = Column(String(5))
 
     company = relationship("CompanyProfile", back_populates="stocksymbol")
-
+    daily_charts = relationship("DailyChartEOD", back_populates="stocksymbol")
+    
 
 class CompanyProfile(Base):
     """
