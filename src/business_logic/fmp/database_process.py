@@ -112,3 +112,43 @@ class StockService:
         except Exception as e:
             raise RuntimeError(
                 f"Failed to update company profile due to an unexpected error: {e}") from e
+
+    def fetch_daily_chart_for_period(self, symbol: str, start_date: str,
+        end_date:str) -> None:
+        """
+        Fetches daily chart data for a given symbol and period and inserts it into the database.
+
+        This function retrieves historical price data for a specified stock 
+        symbol between the start and end dates from the Financial Modeling Prep 
+        API. It then inserts this data into the database using the 
+        `insert_daily_chart_data` method of the `StockManager` class. The 
+        function handles database and unexpected errors by raising a 
+        `RuntimeError`.
+
+        Args:
+            symbol (str): The stock symbol for which to retrieve historical price data.
+            start_date (str): The start date for the period of interest in YYYY-MM-DD format.
+            end_date (str): The end date for the period of interest in YYYY-MM-DD format.
+
+        Raises:
+            RuntimeError: An error occurred while updating the daily chart due 
+            to either a database error or an unexpected error. The original 
+            error is wrapped in the RuntimeError and re-raised.
+
+        """
+        try:
+            # Initialize StockManager with the database session
+            stock_manager = StockManager(self.db_session)
+
+            # Data recovery
+            data = get_jsonparsed_data(f"https://financialmodelingprep.com/api/v3/historical-price-full/{symbol}?from={start_date}&to={end_date}&apikey={API_KEY_FMP}") # pylint: disable=line-too-long
+
+            # Inserting data into the database
+            stock_manager.insert_daily_chart_data(data)
+
+        except SQLAlchemyError as e:
+            raise RuntimeError(
+                f"Failed to update daily chart due to database error: {e}") from e
+        except Exception as e:
+            raise RuntimeError(
+                f"Failed to update daily chart due to an unexpected error: {e}") from e
