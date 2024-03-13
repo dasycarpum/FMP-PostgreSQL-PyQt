@@ -57,6 +57,8 @@ class StockSymbol(Base):
     company = relationship("CompanyProfile", back_populates="stocksymbol")
     daily_charts = relationship("DailyChartEOD", back_populates="stocksymbol")
     dividends = relationship("HistoricalDividend", back_populates="stocksymbol")
+    keymetrics = relationship("HistoricalKeyMetrics",
+                               back_populates="stocksymbol")
 
 
 class CompanyProfile(Base):
@@ -142,8 +144,8 @@ class DailyChartEOD(Base):
         symbol associated with this quotation.
     
     Constraints:
-        __table_args__: A unique constraint (`_char_stockid_date_uc`) ensuring that 
-        there can be only one quotation entry per stock per day, combining 
+        __table_args__: A unique constraint (`_char_stockid_date_uc`) ensuring 
+        that there can be only one quotation entry per stock per day, combining 
         `stock_id` and `date`.
 
     """
@@ -196,9 +198,9 @@ class HistoricalDividend(Base):
         symbol associated with this dividend.
 
     Constraints:
-        __table_args__ : A unique constraint (_dividend_stockid_date_uc) is applied to 
-        the `stock_id` and `date` fields to ensure there are no duplicate 
-        entries for the same stock on the same date.
+        __table_args__ : A unique constraint (_dividend_stockid_date_uc) is 
+        applied to the `stock_id` and `date` fields to ensure there are no 
+        duplicate entries for the same stock on the same date.
 
     """
     __tablename__ = 'dividend'
@@ -215,3 +217,164 @@ class HistoricalDividend(Base):
     # Add a unique constraint for stock_id and date
     __table_args__ = (UniqueConstraint('stock_id', 'date',
                       name='_dividend_stockid_date_uc'),)
+
+class HistoricalKeyMetrics(Base):
+    """
+    A database model class that represents the historical key financial metrics for a stock.
+
+    Attributes:
+        __tablename__ (str): The name of the table in the database, set to 'keymetrics'.
+        id (Column): The primary key, an integer ID uniquely identifying each entry.
+        stock_id (Column): An integer foreign key linking to the StockSymbol table, cannot be null.
+        date (Column): The date for the metrics, cannot be null.
+        calendar_year (Column): The calendar year as a string in YYYY format, cannot be null.
+        period (Column): The fiscal period of the report as a string (e.g., 
+        'Q1', 'Q2', 'H1'), cannot be null.
+        revenue_per_share (Column): Revenue per share, a floating-point number.
+        net_income_per_share (Column): Net income per share, a floating-point number.
+        operating_cash_flow_per_share (Column): Operating cash flow per share, 
+        a floating-point number.
+        free_cash_flow_per_share (Column): Free cash flow per share, a floating-point number.
+        cash_per_share (Column): Cash per share, a floating-point number.
+        book_value_per_share (Column): Book value per share, a floating-point number.
+        tangible_book_value_per_share (Column): Tangible book value per share, 
+        a floating-point number.
+        shareholders_equity_per_share (Column): Shareholder's equity per share, 
+        a floating-point number.
+        interest_debt_per_share (Column): Interest debt per share, a floating-point number.
+        market_cap (Column): Market capitalization, a big integer.
+        enterprise_value (Column): Enterprise value, a big integer.
+        pe_ratio (Column): Price to earnings ratio, a floating-point number.
+        price_to_sales_ratio (Column): Price to sales ratio, a floating-point number.
+        pocf_ratio (Column): Price to operating cash flow ratio, a floating-point number.
+        pfcf_ratio (Column): Price to free cash flow ratio, a floating-point number.
+        pb_ratio (Column): Price to book ratio, a floating-point number.
+        ptb_ratio (Column): Price to tangible book ratio, a floating-point number.
+        ev_to_sales (Column): Enterprise value to sales ratio, a floating-point number.
+        enterprise_value_over_ebitda (Column): Enterprise value over EBITDA 
+        ratio, a floating-point number.
+        ev_to_operating_cash_flow (Column): EV to operating cash flow ratio, a 
+        floating-point number.
+        ev_to_free_cash_flow (Column): EV to free cash flow ratio, a floating-point number.
+        earnings_yield (Column): Earnings yield, a floating-point number.
+        free_cash_flow_yield (Column): Free cash flow yield, a floating-point number.
+        debt_to_equity (Column): Debt to equity ratio, a floating-point number.
+        debt_to_assets (Column): Debt to assets ratio, a floating-point number.
+        net_debt_to_ebitda (Column): Net debt to EBITDA ratio, a floating-point number.
+        current_ratio (Column): Current ratio, a floating-point number.
+        interest_coverage (Column): Interest coverage ratio, a floating-point number.
+        income_quality (Column): Income quality, a floating-point number.
+        dividend_yield (Column): Dividend yield, a floating-point number.
+        payout_ratio (Column): Payout ratio, a floating-point number.
+        sales_general_and_administrative_to_revenue (Column): SG&A to revenue 
+        ratio, a floating-point number.
+        research_and_development_to_revenue (Column): R&D to revenue ratio, a floating-point number.
+        intangibles_to_total_assets (Column): Intangibles to total assets 
+        ratio, a floating-point number.
+        capex_to_operating_cash_flow (Column): CapEx to operating cash flow 
+        ratio, a floating-point number.
+        capex_to_revenue (Column): CapEx to revenue ratio, a floating-point number.
+        capex_to_depreciation (Column): CapEx to depreciation ratio, a floating-point number.
+        stock_based_compensation_to_revenue (Column): Stock-based compensation 
+        to revenue ratio, a floating-point number.
+        graham_number (Column): Graham number, a floating-point number.
+        roic (Column): Return on invested capital, a floating-point number.
+        return_on_tangible_assets (Column): Return on tangible assets, a floating-point number.
+        graham_net_net (Column): Graham net-net, a floating-point number.
+        working_capital (Column): Working capital, a big integer.
+        tangible_asset_value (Column): Tangible asset value, a big integer.
+        net_current_asset_value (Column): Net current asset value, a big integer.
+        invested_capital (Column): Invested capital, a floating-point number.
+        average_receivables (Column): Average receivables, a big integer.
+        average_payables (Column): Average payables, a big integer.
+        average_inventory (Column): Average inventory, a big integer.
+        days_sales_outstanding (Column): Days sales outstanding, a floating-point number.
+        days_payables_outstanding (Column): Days payables outstanding, a floating-point number.
+        days_of_inventory_on_hand (Column): Days of inventory on hand, a floating-point number.
+        receivables_turnover (Column): Receivables turnover, a floating-point number.
+        payables_turnover (Column): Payables turnover, a floating-point number.
+        inventory_turnover (Column): Inventory turnover, a floating-point number.
+        roe (Column): Return on equity, a floating-point number.
+        capex_per_share (Column): CapEx per share, a floating-point number.
+        
+    Relationships:
+        stocksymbol (relationship): SQLAlchemy `relationship` to the 
+        corresponding `StockSymbol` instance, providing access to the stock 
+        symbol associated with the key metrics.
+
+    Constraints:
+        __table_args__ : A unique constraint (_keymetrics_stockid_date_uc) is 
+        applied to the `stock_id` and `date` fields to ensure there are no 
+        duplicate entries for the same stock on the same date.
+
+    """
+    __tablename__ = 'keymetrics'
+
+    id = Column(Integer, primary_key=True)
+    stock_id = Column(Integer, ForeignKey(StockSymbol.id), nullable=False)
+    date = Column(Date, nullable=False)
+    calendaryear = Column(String(4), nullable=False)
+    period = Column(String(6), nullable=False)
+    revenue_per_share = Column(Float)
+    net_income_per_share = Column(Float)
+    operating_cash_flow_per_share = Column(Float)
+    free_cash_flow_per_share = Column(Float)
+    cash_per_share = Column(Float)
+    book_value_per_share = Column(Float)
+    tangible_book_value_per_share = Column(Float)
+    shareholders_equity_per_share = Column(Float)
+    interest_debt_per_share = Column(Float)
+    market_cap = Column(BigInteger)
+    enterprise_value = Column(BigInteger)
+    pe_ratio = Column(Float)
+    price_to_sales_ratio = Column(Float)
+    pocf_ratio = Column(Float)
+    pfcf_ratio = Column(Float)
+    pb_ratio = Column(Float)
+    ptb_ratio = Column(Float)
+    ev_to_sales = Column(Float)
+    enterprise_value_over_ebitda = Column(Float)
+    ev_to_operating_cash_flow = Column(Float)
+    ev_to_free_cash_flow = Column(Float)
+    earnings_yield = Column(Float)
+    free_cash_flow_yield = Column(Float)
+    debt_to_equity = Column(Float)
+    debt_to_assets = Column(Float)
+    net_debt_to_ebitda = Column(Float)
+    current_ratio = Column(Float)
+    interest_coverage = Column(Float)
+    income_quality = Column(Float)
+    dividend_yield = Column(Float)
+    payout_ratio = Column(Float)
+    sales_general_and_administrative_to_revenue = Column(Float)
+    research_and_development_to_revenue = Column(Float)
+    intangibles_to_total_assets = Column(Float)
+    capex_to_operating_cash_flow = Column(Float)
+    capex_to_revenue = Column(Float)
+    capex_to_depreciation = Column(Float)
+    stock_based_compensation_to_revenue = Column(Float)
+    graham_number = Column(Float)
+    roic = Column(Float)
+    return_on_tangible_assets = Column(Float)
+    graham_net_net = Column(Float)
+    working_capital = Column(BigInteger)
+    tangible_asset_value = Column(BigInteger)
+    net_current_asset_value = Column(BigInteger)
+    invested_capital = Column(Float)
+    average_receivables = Column(BigInteger)
+    average_payables = Column(BigInteger)
+    average_inventory = Column(BigInteger)
+    days_sales_outstanding = Column(Float)
+    days_payables_outstanding = Column(Float)
+    days_of_inventory_on_hand = Column(Float)
+    receivables_turnover = Column(Float)
+    payables_turnover = Column(Float)
+    inventory_turnover = Column(Float)
+    roe = Column(Float)
+    capex_per_share = Column(Float)
+
+    stocksymbol = relationship("StockSymbol", back_populates="keymetrics")
+
+    # Add a unique constraint for stock_id and date
+    __table_args__ = (UniqueConstraint('stock_id', 'date',
+                      name='_keymetrics_stockid_date_uc'),)
