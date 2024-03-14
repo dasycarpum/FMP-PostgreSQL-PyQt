@@ -88,3 +88,7 @@ def convert_stock_table_to_hypertable(table_name):
         # Rollback the transaction in case of an error
         db_session.rollback()
         print(f"An error occurred: {e}")
+
+    finally:
+        # Close session in all cases (on success or failure)
+        db_session.close()
