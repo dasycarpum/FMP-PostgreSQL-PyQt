@@ -114,6 +114,9 @@ class StockManager:
                 if stock_id_query:
                     stmt = insert(CompanyProfile).values(
                         stock_id=stock_id_query,
+                        beta=item.get("beta"),
+		                vol_avg=item.get("volAvg"),
+		                mkt_cap=item.get("mktCap"),
                         currency=item.get("currency"),
                         cik=str(item.get("cik")),  # convert to string
                         isin=item.get("isin"),

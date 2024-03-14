@@ -46,7 +46,10 @@ def main():
     stock_service = StockService(db_session)
 
     # stock_service.fetch_stock_symbols()
-    # stock_service.fetch_company_profiles_for_exchange("Lisbon")
+    european_exchanges = ["Copenhagen", "Madrid Stock Exchange", "Frankfurt Stock Exchange", "Paris", "Irish", "Lisbon", "Brussels", "Milan", "Amsterdam", "Helsinki", "Vienna", "Stockholm Stock Exchange", "Swiss Exchange", "London Stock Exchange", "Oslo Stock Exchange", "Athens", "Prague", "Warsaw Stock Exchange", "Riga", "Budapest", "Iceland"]
+    for exchange in european_exchanges:
+        stock_service.fetch_company_profiles_for_exchange(exchange)
+
     symbols = ['AAPL', 'MSFT']
     for symbol in symbols:
         # stock_service.fetch_daily_chart_for_period(symbol, "1990-01-01", "1995-01-01")

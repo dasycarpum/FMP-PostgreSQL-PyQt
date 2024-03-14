@@ -69,6 +69,10 @@ class CompanyProfile(Base):
         id (int): Primary key.
         stock_id (int): Foreign key linking to the StockSymbol table, ensuring
          a one-to-one relationship.
+        beta (Float): measure of an asset's volatility relative to a reference 
+         market or index.
+        vol_avg (BigInteger): volume average.
+        mkt_cap (BigInteger): market capitalization.
         currency (str): The currency in which the company operates.
         cik (str): The Central Index Key (CIK) assigned by the SEC.
         isin (str): The International Securities Identification Number.
@@ -96,6 +100,9 @@ class CompanyProfile(Base):
 
     id = Column(Integer, primary_key=True)
     stock_id = Column(Integer, ForeignKey(StockSymbol.id), unique=True, nullable=False)
+    beta = Column(Float)
+    vol_avg = Column(BigInteger)
+    mkt_cap = Column(BigInteger)
     currency = Column(String(3))
     cik = Column(String(10))
     isin = Column(String(12))
