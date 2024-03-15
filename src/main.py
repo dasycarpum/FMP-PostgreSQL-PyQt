@@ -13,7 +13,7 @@ from src.models.base import Session
 from src.models.fmp.stock import StockSymbol, CompanyProfile, DailyChartEOD # pylint: disable=unused-import
 from src.dal.fmp.database_query import StockQuery
 from src.business_logic.fmp.data_analytics import   clean_data_for_company_profiles_clustering
-from src.services.plot import plot_boxplots
+from src.services.plot import plot_boxplots, plot_distributions
 
 def main():
     """
@@ -37,13 +37,14 @@ def main():
 
     # Extracting stock data from company profiles table
     data = stock_query.extract_data_for_company_profiles_clustering()
-    print(len(data))
 
     # Cleaning the data and converting to dataframe
     df = clean_data_for_company_profiles_clustering(data)
-    
+
     # Outliers management
-    plot_boxplots(df, ['beta', 'vol_avg', 'mkt_cap'])
+    variables = ['beta', 'vol_avg', 'mkt_cap']
+    plot_boxplots(df, variables)
+    plot_distributions(df, variables)
 
 
 if __name__ == "__main__":

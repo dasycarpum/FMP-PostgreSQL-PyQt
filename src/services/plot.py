@@ -54,3 +54,43 @@ def plot_boxplots(df, variables):
     plt.tight_layout()
 
     plt.savefig('figure/boxplots.png')
+
+
+def plot_distributions(df, variables):
+    """
+    Generates histograms for the specified variables from the given DataFrame.
+
+    Args:
+        df (pandas.DataFrame): The DataFrame containing the data.
+        variables (list of str): A list of strings representing the column 
+        names for which distributions are to be generated.
+
+    Returns:
+        None. Displays the distributions of the specified variables.
+
+    Raises:
+        ValueError: If any of the specified variables are not found in the DataFrame.
+
+    """
+    # Check if all specified variables exist in the DataFrame
+    for var in variables:
+        if var not in df.columns:
+            raise ValueError(f"Variable '{var}' not found in the DataFrame.")
+
+    # Number of variables
+    n_vars = len(variables)
+
+    # Create figure and axes for boxplots
+    fig, axes = plt.subplots(1, n_vars, figsize=(n_vars * 5, 4), squeeze=False) # pylint: disable=unused-variable
+    axes = axes.flatten()  # Flatten axis table if necessary
+
+    # Display distributions for each variable
+    for i, var in enumerate(variables):
+        data = df[var].dropna()
+        axes[i].hist(data, bins=30, alpha=0.7, label=var, color='skyblue', edgecolor='black')
+        axes[i].set_title(var)
+
+    # Automatically adjusts subplots to fit within the figure area
+    plt.tight_layout()
+
+    plt.savefig('figure/distributions.png')
