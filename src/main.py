@@ -14,6 +14,8 @@ from src.models.fmp.stock import StockSymbol, CompanyProfile, DailyChartEOD # py
 from src.dal.fmp.database_query import StockQuery
 from src.business_logic.fmp.data_analytics import   clean_data_for_company_profiles_clustering
 from src.services.plot import plot_boxplots, plot_distributions
+from src.services.ml import (detection_and_exclusion_of_outliers_ee,
+    detection_and_exclusion_of_outliers_if)
 
 def main():
     """
@@ -43,8 +45,18 @@ def main():
 
     # Outliers management
     variables = ['beta', 'vol_avg', 'mkt_cap']
-    plot_boxplots(df, variables)
-    plot_distributions(df, variables)
+
+    df_beta_purged = detection_and_exclusion_of_outliers_ee(df,
+                    variables[0], 0.02)
+    df_mkt_purged = detection_and_exclusion_of_outliers_if(df_beta_purged,
+                    variables[2], 0.0001)
+
+    plot_boxplots(df_mkt_purged, variables)
+    plot_distributions(df_mkt_purged, variables)
+
+    print(df_mkt_purged.head())
+    print(df_mkt_purged.info())
+    print(df_mkt_purged.describe())
 
 
 if __name__ == "__main__":
