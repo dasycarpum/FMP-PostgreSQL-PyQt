@@ -12,6 +12,7 @@ Created on 2024-03-09
 from src.models.base import Session
 from src.models.fmp.stock import StockSymbol, CompanyProfile, DailyChartEOD # pylint: disable=unused-import
 from src.dal.fmp.database_query import StockQuery
+from src.business_logic.fmp.data_analytics import   clean_data_for_company_profiles_clustering
 
 def main():
     """
@@ -33,9 +34,16 @@ def main():
     db_session = Session()
     stock_query = StockQuery(db_session)
 
+    # Extracting stock data from company profiles table
     data = stock_query.extract_data_for_company_profiles_clustering()
+    print(len(data))
 
-    print(data[:5])
+    # Cleaning the data and converting to dataframe
+    df = clean_data_for_company_profiles_clustering(data)
+    print(df.head())
+    print(df.info())
+    print(df.describe())
+
 
 if __name__ == "__main__":
     main()
