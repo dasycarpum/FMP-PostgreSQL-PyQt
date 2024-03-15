@@ -15,7 +15,7 @@ from src.dal.fmp.database_query import StockQuery
 from src.business_logic.fmp.data_analytics import   clean_data_for_company_profiles_clustering
 from src.services.plot import plot_boxplots, plot_distributions
 from src.services.ml import (detection_and_exclusion_of_outliers_ee,
-    detection_and_exclusion_of_outliers_if)
+    detection_and_exclusion_of_outliers_if, normalize_data)
 
 def main():
     """
@@ -51,12 +51,15 @@ def main():
     df_mkt_purged = detection_and_exclusion_of_outliers_if(df_beta_purged,
                     variables[2], 0.0001)
 
-    plot_boxplots(df_mkt_purged, variables)
-    plot_distributions(df_mkt_purged, variables)
+    # Normalizing the numerical columns
+    df_normalized = normalize_data(df_mkt_purged, variables)
 
-    print(df_mkt_purged.head())
-    print(df_mkt_purged.info())
-    print(df_mkt_purged.describe())
+    plot_boxplots(df_normalized, variables)
+    plot_distributions(df_normalized, variables)
+
+    print(df_normalized.head())
+    print(df_normalized.info())
+    print(df_normalized.describe())
 
 
 if __name__ == "__main__":

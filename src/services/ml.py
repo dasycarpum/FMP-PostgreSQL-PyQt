@@ -12,6 +12,7 @@ Created on 2024-03-12
 import pandas as pd
 from sklearn.covariance import EllipticEnvelope
 from sklearn.ensemble import IsolationForest
+from sklearn.preprocessing import StandardScaler
 
 
 def detection_and_exclusion_of_outliers_ee(df, variable: str,
@@ -84,3 +85,41 @@ def detection_and_exclusion_of_outliers_if(df, variable: str,
 
     # Return a new DataFrame without the outliers
     return df_filtered
+
+def normalize_data(df, columns_to_normalize: list) -> pd.DataFrame:
+    """
+    Normalizes the numerical columns of DataFrame.
+
+    This function applies standard normalization to the numerical columns of 
+    the DataFrame, which re-scales the features to have a mean of 0 and a 
+    standard deviation of 1. This step is crucial for many machine learning 
+    algorithms to perform correctly.
+
+    Args:
+        df (pd.DataFrame): The DataFrame containing data.
+        columns_to_normalize (list): A list of column names to be normalized.
+
+    Returns:
+        pd.DataFrame: A DataFrame with the same columns as the input, where the 
+        numerical data has been normalized.
+
+    Raises:
+        ValueError: If any of the columns to normalize are not found in the DataFrame.
+
+    """
+    # Check if all specified variables exist in the DataFrame
+    missing_cols = [col for col in columns_to_normalize if col not in df.columns]
+    if missing_cols:
+        raise ValueError(f"Variables {missing_cols} not found in the DataFrame.")
+
+    # Work on a copy of the DataFrame to avoid SettingWithCopyWarning
+    df_copy = df.copy()
+
+    # Initialize the scaler
+    scaler = StandardScaler()
+
+    # Fit the scaler to the data and transform it
+    df_copy[columns_to_normalize] = scaler.fit_transform(
+                                    df_copy[columns_to_normalize])
+
+    return df_copy
