@@ -17,7 +17,7 @@ from src.business_logic.fmp.data_analytics import   clean_data_for_company_profi
 from src.services.plot import (plot_boxplots, plot_distributions,
     display_correlation_matrix)
 from src.services.ml import (detection_and_exclusion_of_outliers_ee,
-    detection_and_exclusion_of_outliers_if, normalize_data)
+    detection_and_exclusion_of_outliers_if, normalize_data, determine_cluster_numbers_with_kmeans)
 
 
 def main():
@@ -69,6 +69,11 @@ def main():
     print(stats.pearsonr(df_normalized['vol_avg'],df_normalized['mkt_cap']))
     print(stats.pearsonr(df_normalized['beta'],df_normalized['mkt_cap']))
     print(stats.pearsonr(df_normalized['vol_avg'],df_normalized['beta']))
+
+    # Determining the number of clusters
+    scores = determine_cluster_numbers_with_kmeans(df_normalized)
+    print(scores)
+
 
 if __name__ == "__main__":
     main()
