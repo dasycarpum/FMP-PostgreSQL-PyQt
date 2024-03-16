@@ -17,7 +17,7 @@ from sklearn.cluster import KMeans
 from sklearn.metrics import silhouette_score
 
 
-def detection_and_exclusion_of_outliers_ee(df, variable: str,
+def detection_and_exclusion_of_outliers_ee(df: pd.DataFrame, variable: str,
     contamination: float = 0.01) -> pd.DataFrame:
     """
     Identifies and excludes outliers for a specified variable in the DataFrame 
@@ -54,7 +54,7 @@ def detection_and_exclusion_of_outliers_ee(df, variable: str,
     # Return a new DataFrame without the outliers
     return df[inliers_mask]
 
-def detection_and_exclusion_of_outliers_if(df, variable: str,
+def detection_and_exclusion_of_outliers_if(df: pd.DataFrame, variable: str,
     contamination: float = 0.01) -> pd.DataFrame:
     """
     Identifies and excludes outliers for a specified variable in the DataFrame 
@@ -88,7 +88,7 @@ def detection_and_exclusion_of_outliers_if(df, variable: str,
     # Return a new DataFrame without the outliers
     return df_filtered
 
-def normalize_data(df, columns_to_normalize: list) -> pd.DataFrame:
+def normalize_data(df: pd.DataFrame, columns_to_normalize: list) -> pd.DataFrame:
     """
     Normalizes the numerical columns of DataFrame.
 
@@ -126,7 +126,7 @@ def normalize_data(df, columns_to_normalize: list) -> pd.DataFrame:
 
     return df_copy
 
-def determine_cluster_numbers_with_kmeans(data_normalized):
+def determine_cluster_numbers_with_kmeans(df: pd.DataFrame) -> dict:
     """
     Determines the optimal number of clusters for KMeans clustering.
 
@@ -138,9 +138,9 @@ def determine_cluster_numbers_with_kmeans(data_normalized):
     the silhouette score.
 
     Args:
-        data_normalized (pd.DataFrame or np.array): The normalized dataset used 
-        for clustering. This should be a 2D array or DataFrame where rows 
-        represent samples and columns represent features.
+        df (pd.DataFrame): The normalized dataset used for clustering. This 
+        should be a 2D array or DataFrame where rows represent samples and 
+        columns represent features.
 
     Returns:
         dict: A dictionary with the number of clusters as keys and the 
@@ -161,8 +161,40 @@ def determine_cluster_numbers_with_kmeans(data_normalized):
 
     for i in range_values:
         kmeans = KMeans(n_clusters=i, random_state=0)  # Initialize KMeans with i clusters
-        kmeans.fit(data_normalized)  # Fit KMeans model to the normalized data
-        score = silhouette_score(data_normalized, kmeans.labels_)  # Calculate
+        kmeans.fit(df)  # Fit KMeans model to the normalized data
+        score = silhouette_score(df, kmeans.labels_)
         scores[i] = score  # Store the score in the dictionary
 
     return scores
+
+def apply_kmeans_clustering(df: pd.DataFrame, scores: dict) -> pd.DataFrame:
+    """
+    Applies KMeans clustering to the normalized data and adds a cluster label.
+
+    This function finds the optimal number of clusters based on the given 
+    silhouette scores, applies KMeans clustering to the normalized dataset with 
+    this optimal number of clusters, and assigns the cluster labels to the data.
+
+    Args:
+        df (pd.DataFrame): The normalized dataset on which 
+        clustering will be applied. It should be a DataFrame for this function 
+        to work correctly.
+        scores (dict): A dictionary containing the number of clusters as keys 
+        and the corresponding silhouette scores as values.
+
+    Returns:
+        pd.DataFrame: The original normalized dataset with an additional column 
+        'cluster' that contains the cluster labels for each data point.
+
+    """
+    # Determine the optimal number of clusters
+    n_clusters_optimal = max(scores, key=scores.get)
+
+    # Apply KMeans clustering with the optimal number of clusters
+    kmeans = KMeans(n_clusters=n_clusters_optimal, random_state=0)
+    clusters = kmeans.fit_predict(df)
+
+    # Add the cluster labels to the DataFrame
+    df['cluster'] = clusters
+
+    return df

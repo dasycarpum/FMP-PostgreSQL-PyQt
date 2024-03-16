@@ -17,7 +17,8 @@ from src.business_logic.fmp.data_analytics import   clean_data_for_company_profi
 from src.services.plot import (plot_boxplots, plot_distributions,
     display_correlation_matrix)
 from src.services.ml import (detection_and_exclusion_of_outliers_ee,
-    detection_and_exclusion_of_outliers_if, normalize_data, determine_cluster_numbers_with_kmeans)
+    detection_and_exclusion_of_outliers_if, normalize_data,
+    determine_cluster_numbers_with_kmeans, apply_kmeans_clustering)
 
 
 def main():
@@ -73,6 +74,12 @@ def main():
     # Determining the number of clusters
     scores = determine_cluster_numbers_with_kmeans(df_normalized)
     print(scores)
+
+    # Running the KMeans clustering algorithm
+    df_result = apply_kmeans_clustering(df_normalized, scores)
+    print(df_result.head())
+    print(df_result['cluster'].value_counts())
+    print(df_result[df_result['stock_id']==21395])  # Total Energie
 
 
 if __name__ == "__main__":
