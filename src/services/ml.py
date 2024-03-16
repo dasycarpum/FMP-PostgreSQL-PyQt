@@ -13,7 +13,7 @@ import pandas as pd
 from sklearn.covariance import EllipticEnvelope
 from sklearn.ensemble import IsolationForest
 from sklearn.preprocessing import StandardScaler
-from sklearn.cluster import KMeans
+from sklearn.cluster import KMeans, DBSCAN
 from sklearn.metrics import silhouette_score
 
 
@@ -193,6 +193,35 @@ def apply_kmeans_clustering(df: pd.DataFrame, scores: dict) -> pd.DataFrame:
     # Apply KMeans clustering with the optimal number of clusters
     kmeans = KMeans(n_clusters=n_clusters_optimal, random_state=0)
     clusters = kmeans.fit_predict(df)
+
+    # Add the cluster labels to the DataFrame
+    df['cluster'] = clusters
+
+    return df
+
+def apply_dbscan_clustering(df: pd.DataFrame, eps: float, min_samples: int) -> pd.DataFrame:
+    """
+    Applies DBSCAN clustering to the dataset and adds a cluster label.
+
+    This function applies DBSCAN clustering to the dataset with specified `eps` 
+    and `min_samples` parameters, and assigns the cluster labels to the data.
+
+    Args:
+        df (pd.DataFrame): The dataset on which clustering will be applied. 
+        It should be a DataFrame for this function to work correctly.
+        eps (float): The maximum distance between two samples for them to be 
+        considered as in the same neighborhood.
+        min_samples (int): The number of samples in a neighborhood for a point 
+        to be considered as a core point.
+
+    Returns:
+        pd.DataFrame: The original dataset with an additional column 'cluster' 
+        that contains the cluster labels for each data point.
+
+    """
+    # Apply DBSCAN clustering
+    dbscan = DBSCAN(eps=eps, min_samples=min_samples)
+    clusters = dbscan.fit_predict(df)
 
     # Add the cluster labels to the DataFrame
     df['cluster'] = clusters
