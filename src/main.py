@@ -9,13 +9,16 @@ Created on 2024-03-09
 
 """
 
+from scipy import stats
 from src.models.base import Session
 from src.models.fmp.stock import StockSymbol, CompanyProfile, DailyChartEOD # pylint: disable=unused-import
 from src.dal.fmp.database_query import StockQuery
 from src.business_logic.fmp.data_analytics import   clean_data_for_company_profiles_clustering
-from src.services.plot import plot_boxplots, plot_distributions
+from src.services.plot import (plot_boxplots, plot_distributions,
+    display_correlation_matrix)
 from src.services.ml import (detection_and_exclusion_of_outliers_ee,
     detection_and_exclusion_of_outliers_if, normalize_data)
+
 
 def main():
     """
@@ -61,6 +64,11 @@ def main():
     print(df_normalized.info())
     print(df_normalized.describe())
 
+    # Correlation analysis
+    display_correlation_matrix(df_normalized, variables)
+    print(stats.pearsonr(df_normalized['vol_avg'],df_normalized['mkt_cap']))
+    print(stats.pearsonr(df_normalized['beta'],df_normalized['mkt_cap']))
+    print(stats.pearsonr(df_normalized['vol_avg'],df_normalized['beta']))
 
 if __name__ == "__main__":
     main()

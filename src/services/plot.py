@@ -9,10 +9,12 @@ Created on 2024-03-15
 
 """
 
+import pandas as pd
 import matplotlib.pyplot as plt
+import seaborn as sns
 
 
-def plot_boxplots(df, variables):
+def plot_boxplots(df: pd.DataFrame, variables: list) -> None:
     """
     Generates boxplots for the specified variables from the given DataFrame.
 
@@ -56,7 +58,7 @@ def plot_boxplots(df, variables):
     plt.savefig('figure/boxplots.png')
 
 
-def plot_distributions(df, variables):
+def plot_distributions(df: pd.DataFrame, variables: list) -> None:
     """
     Generates histograms for the specified variables from the given DataFrame.
 
@@ -94,3 +96,36 @@ def plot_distributions(df, variables):
     plt.tight_layout()
 
     plt.savefig('figure/distributions.png')
+
+def display_correlation_matrix(df: pd.DataFrame, variables: list) -> None:
+    """
+    Displays the correlation matrix between the specified columns of a DataFrame.
+
+    Args:
+        df (pd.DataFrame): The DataFrame containing the data.
+        variables (list of str): A list of strings representing the names of 
+        the columns for which the correlation matrix is calculated.
+
+    Returns:
+        None. Displays the correlation matrix.
+
+    Raises:
+        ValueError: If one of the specified columns is not found in the DataFrame.
+
+    """
+    # Check if all specified variables exist in the DataFrame
+    missing_columns = [column for column in variables if column not in df.columns]
+    if missing_columns:
+        raise ValueError(
+            f"The following columns were not found in the DataFrame: {missing_columns}")
+
+    # Calculate correlation matrix for specified columns
+    correlation_matrix = df[variables].corr()
+
+    # Display correlation matrix
+    plt.figure(figsize=(10, 8))
+    sns.heatmap(correlation_matrix, annot=True, fmt=".2f", cmap="coolwarm",
+        square=True, cbar_kws={"shrink": .75})
+    plt.title("Correlation matrix")
+
+    plt.savefig('figure/correlation_matrix.png')
