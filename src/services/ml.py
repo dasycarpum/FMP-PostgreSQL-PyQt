@@ -15,6 +15,7 @@ from sklearn.ensemble import IsolationForest
 from sklearn.preprocessing import StandardScaler
 from sklearn.cluster import KMeans, DBSCAN
 from sklearn.metrics import silhouette_score
+from sklearn.decomposition import PCA
 
 
 def detection_and_exclusion_of_outliers_ee(df: pd.DataFrame, variable: str,
@@ -227,3 +228,45 @@ def apply_dbscan_clustering(df: pd.DataFrame, eps: float, min_samples: int) -> p
     df['cluster'] = clusters
 
     return df
+
+def apply_pca(df: pd.DataFrame, variables: list, n_components: int) -> pd.DataFrame:
+    """
+    Applies PCA to reduce a given DataFrame to n dimensions over the specified 
+    columns, and returns a DataFrame with the reduced dimensions and the other 
+    columns unchanged.
+
+    Args:
+        df (pd.DataFrame): The original DataFrame.
+        variables (list of str): The list of column names on which to apply PCA.
+        n_components (int): The number of principal components to retain.
+
+    Returns:
+        pd.DataFrame: A DataFrame containing the new principal components and 
+        other columns not affected by PCA.
+
+    """
+    # Check if all specified variables exist in the DataFrame
+    for var in variables:
+        if var not in df.columns:
+            raise ValueError(f"Variable '{var}' not found in the DataFrame.")
+
+    # Separate variables for PCA and other variables
+    pca_data = df[variables]
+    other_data = df.drop(columns=variables)
+
+    # Initialize and apply PCA
+    pca = PCA(n_components=n_components)
+    pca_transformed_data = pca.fit_transform(pca_data)
+
+    # Create a DataFrame with PCA results
+    pca_df = pd.DataFrame(data=pca_transformed_data,
+                          columns=[f"PC{i+1}" for i in range(n_components)])
+
+    # Reset index to allow concatenation
+    other_data.reset_index(drop=True, inplace=True)
+    pca_df.reset_index(drop=True, inplace=True)
+
+    # Concatenate PCA components and other data
+    result_df = pd.concat([other_data, pca_df], axis=1)
+
+    return result_df

@@ -18,7 +18,7 @@ from src.services.plot import (plot_boxplots, plot_distributions,
     display_correlation_matrix)
 from src.services.ml import (detection_and_exclusion_of_outliers_ee,
     detection_and_exclusion_of_outliers_if, normalize_data,
-    apply_dbscan_clustering)
+    apply_dbscan_clustering, apply_pca)
 
 
 def main():
@@ -73,9 +73,10 @@ def main():
 
     # Running the DBSCAN clustering algorithm
     df_result = apply_dbscan_clustering(df_normalized, 15, 5)
-    print(df_result.head())
-    print(df_result['cluster'].value_counts())
-    print(df_result[df_result['stock_id']==21395])  # Total Energie
+    df_pca = apply_pca(df_result, variables, 2)
+    print(df_pca.head())
+    print(df_pca['cluster'].value_counts())
+    print(df_pca[df_pca['stock_id']==21395])  # Total Energie
 
 
 if __name__ == "__main__":
