@@ -15,7 +15,7 @@ from src.models.fmp.stock import StockSymbol, CompanyProfile, DailyChartEOD # py
 from src.dal.fmp.database_query import StockQuery
 from src.business_logic.fmp.data_analytics import   clean_data_for_company_profiles_clustering
 from src.services.plot import (plot_boxplots, plot_distributions,
-    display_correlation_matrix)
+    display_correlation_matrix, plot_scatterplot)
 from src.services.ml import (detection_and_exclusion_of_outliers_ee,
     detection_and_exclusion_of_outliers_if, normalize_data,
     apply_dbscan_clustering, apply_pca)
@@ -55,15 +55,15 @@ def main():
     df_mkt_purged = detection_and_exclusion_of_outliers_if(df_beta_purged,
                     variables[2], 0.0001)
 
+    print(df_mkt_purged.head())
+    print(df_mkt_purged.info())
+    print(df_mkt_purged.describe())
+
     # Normalizing the numerical columns
     df_normalized = normalize_data(df_mkt_purged, variables)
 
     plot_boxplots(df_normalized, variables)
     plot_distributions(df_normalized, variables)
-
-    print(df_normalized.head())
-    print(df_normalized.info())
-    print(df_normalized.describe())
 
     # Correlation analysis
     display_correlation_matrix(df_normalized, variables)
@@ -77,6 +77,9 @@ def main():
     print(df_pca.head())
     print(df_pca['cluster'].value_counts())
     print(df_pca[df_pca['stock_id']==21395])  # Total Energie
+
+    df_pca = df_pca[df_pca['cluster'].isin([0, 4, 52])]
+    plot_scatterplot(df_pca, 'PC1', 'PC2', 'cluster')
 
 
 if __name__ == "__main__":

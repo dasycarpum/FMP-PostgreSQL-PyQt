@@ -129,3 +129,36 @@ def display_correlation_matrix(df: pd.DataFrame, variables: list) -> None:
     plt.title("Correlation matrix")
 
     plt.savefig('figure/correlation_matrix.png')
+
+def plot_scatterplot(df: pd.DataFrame, x_var: str, y_var: str, hue_var: str):
+    """
+    Generates a scatter plot from the specified columns of a DataFrame, using a 
+    third column to tint the points.
+
+    Args:
+        df (pd.DataFrame): The DataFrame containing the data to be visualized.
+        x_var (str): The name of the column to be used for the X axis.
+        y_var (str): The name of the column to be used for the Y axis.
+        hue_var (str): The name of the column to be used to tint points according to their values.
+
+    Returns:
+        None. Displays the scatter plot.
+
+    """
+    # Check existence of columns in DataFrame
+    for var in [x_var, y_var, hue_var]:
+        if var not in df.columns:
+            raise ValueError(f"Column '{var}' does not exist in the DataFrame")
+
+    # Scatter plot creation
+    plt.figure(figsize=(10, 8))
+    sns.scatterplot(data=df, x=x_var, y=y_var, hue=hue_var, alpha=0.6, palette='bright')
+
+    # Customize graphics
+    plt.title(f'Scatter Plot of {y_var} vs {x_var}', fontsize=15)
+    plt.xlabel(x_var, fontsize=12)
+    plt.ylabel(y_var, fontsize=12)
+    plt.legend(title=hue_var, bbox_to_anchor=(1.05, 1), loc='upper left')
+
+    # Graph display
+    plt.savefig('figure/scatterplot.png')
