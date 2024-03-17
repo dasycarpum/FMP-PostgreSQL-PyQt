@@ -59,6 +59,7 @@ class StockSymbol(Base):
     dividends = relationship("HistoricalDividend", back_populates="stocksymbol")
     keymetrics = relationship("HistoricalKeyMetrics",
                                back_populates="stocksymbol")
+    stoxx600 = relationship("STOXXEurope600", back_populates='stocksymbol')
 
 
 class CompanyProfile(Base):
@@ -385,3 +386,54 @@ class HistoricalKeyMetrics(Base):
     # Add a unique constraint for stock_id and date
     __table_args__ = (UniqueConstraint('stock_id', 'date',
                       name='_keymetrics_stockid_date_uc'),)
+
+class STOXXEurope600(Base):
+    """Represents the STOXX Europe 600 index within a database, detailing each stock's involvement.
+
+    The STOXX Europe 600 index, which includes 600 different stocks across 
+    Europe, aims to provide a broad yet effective representation of the 
+    European stock market. This class links each stock to its performance and
+    metadata within the index.
+
+    Attributes:
+        __tablename__ (str): The name of the table in the database, set to 'sxxp'.
+        id (Column): The primary key, an integer ID uniquely identifying each entry.
+        stock_id (Column): An integer foreign key linking to the StockSymbol table, cannot be null.
+        date (Column): The date the STOXX Europe 600 index was published.
+        index_symbol (Column): A string representing the symbol of the index within the market.
+        index_name (Column): The formal name of the index
+        index_isin (Column): The International Securities Identification Number 
+        (ISIN) for the index.
+        isin (Column): The International Securities Identification Number 
+        (ISIN) for the stock
+        rank (Column): An integer representing the rank of the stock within the 
+        STOXX Europe 600 index, based on criteria such as market capitalization 
+        or performance.
+
+    Relationships:
+        stocksymbol (relationship): SQLAlchemy `relationship` to the 
+        corresponding `StockSymbol` instance, providing access to the stock 
+        symbol associated with the stock index.
+
+    Constraints:
+        __table_args__ : A unique constraint (_sxxp_stockid_date_uc) is 
+        applied to the `stock_id` and `date` fields to ensure there are no 
+        duplicate entries for the same stock on the same date.
+
+    """
+    __tablename__ = 'sxxp'
+
+    id = Column(Integer, primary_key=True)
+    stock_id = Column(Integer, ForeignKey(StockSymbol.id), unique=True, nullable=False)
+    date = Column(Date, nullable=False)
+    index_symbol = Column(String(20))
+    index_name = Column(String(50))
+    index_isin = Column(String(12))
+    isin = Column(String(12))
+    rank = Column(Integer)
+
+    stocksymbol = relationship("StockSymbol", back_populates="stoxx600")
+
+    # Add a unique constraint for stock_id and date
+    __table_args__ = (UniqueConstraint('stock_id', 'date',
+                      name='_sxxp_stockid_date_uc'),)
