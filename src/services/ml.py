@@ -164,7 +164,7 @@ def normalize_data(df: pd.DataFrame, columns_to_normalize: list) -> pd.DataFrame
 
     return df_copy
 
-def determine_cluster_numbers_with_kmeans(df: pd.DataFrame) -> dict:
+def determine_cluster_numbers_with_kmeans(df: pd.DataFrame, columns: list) -> dict:
     """
     Determines the optimal number of clusters for KMeans clustering.
 
@@ -179,6 +179,7 @@ def determine_cluster_numbers_with_kmeans(df: pd.DataFrame) -> dict:
         df (pd.DataFrame): The normalized dataset used for clustering. This 
         should be a 2D array or DataFrame where rows represent samples and 
         columns represent features.
+        columns (list): List of column names to be used for determining cluster numbers.
 
     Returns:
         dict: A dictionary with the number of clusters as keys and the 
@@ -190,22 +191,33 @@ def determine_cluster_numbers_with_kmeans(df: pd.DataFrame) -> dict:
         >>> data_normalized = np.array([[0.1, 0.2], [0.4, 0.2], [0.1, 0.5], [0.3, 0.3]])
         >>> determine_optimal_number_of_clusters_kmeans(data_normalized)
         {2: 0.5, 3: 0.45, 4: 0.35, 5: 0.3}
+    
+    Raises:
+        ValueError: If any of the columns to be used for clustering are not found in the DataFrame.
+
     """
+    # Check if all specified variables exist in the DataFrame
+    for var in columns:
+        if var not in df.columns:
+            raise ValueError(f"Variable '{var}' not found in the DataFrame.")
 
     scores = {}
 
     # Define the range of cluster numbers to evaluate
-    range_values = range(2, 6)
+    range_values = range(2, 7)
+
+    # Select the specified columns for determining cluster numbers
+    df_for_clustering = df[columns]
 
     for i in range_values:
         kmeans = KMeans(n_clusters=i, random_state=0)  # Initialize KMeans with i clusters
-        kmeans.fit(df)  # Fit KMeans model to the normalized data
-        score = silhouette_score(df, kmeans.labels_)
+        kmeans.fit(df_for_clustering)  # Fit KMeans model to the normalized data
+        score = silhouette_score(df_for_clustering, kmeans.labels_)
         scores[i] = score  # Store the score in the dictionary
 
     return scores
 
-def apply_kmeans_clustering(df: pd.DataFrame, scores: dict) -> pd.DataFrame:
+def apply_kmeans_clustering(df: pd.DataFrame, columns: list, scores: dict) -> pd.DataFrame:
     """
     Applies KMeans clustering to the normalized data and adds a cluster label.
 
@@ -216,36 +228,53 @@ def apply_kmeans_clustering(df: pd.DataFrame, scores: dict) -> pd.DataFrame:
     Args:
         df (pd.DataFrame): The normalized dataset on which clustering will be 
         applied. It should be a DataFrame for this function to work correctly.
+        columns (list): List of column names to be used for KMeans clustering.
         scores (dict): A dictionary containing the number of clusters as keys 
         and the corresponding silhouette scores as values.
 
     Returns:
         pd.DataFrame: The original normalized dataset with an additional column 
         'cluster' that contains the cluster labels for each data point.
+    
+    Raises:
+        ValueError: If any of the columns to be used for clustering are not found in the DataFrame.
 
     """
+    # Check if all specified variables exist in the DataFrame
+    for var in columns:
+        if var not in df.columns:
+            raise ValueError(f"Variable '{var}' not found in the DataFrame.")
+
     # Determine the optimal number of clusters
     n_clusters_optimal = max(scores, key=scores.get)
 
+    # Select the specified columns for DBSCAN clustering
+    df_for_clustering = df[columns]
+
     # Apply KMeans clustering with the optimal number of clusters
     kmeans = KMeans(n_clusters=n_clusters_optimal, random_state=0)
-    clusters = kmeans.fit_predict(df)
+    clusters = kmeans.fit_predict(df_for_clustering)
 
     # Add the cluster labels to the DataFrame
     df['cluster'] = clusters
 
     return df
 
-def apply_dbscan_clustering(df: pd.DataFrame, eps: float, min_samples: int) -> pd.DataFrame:
+def apply_dbscan_clustering(df: pd.DataFrame, columns: list, eps: float,
+    min_samples: int) -> pd.DataFrame:
     """
-    Applies DBSCAN clustering to the dataset and adds a cluster label.
+    Applies DBSCAN clustering to the specified columns of the dataset and adds 
+    a cluster label, returning the original DataFrame with an additional 
+    'cluster' column.
 
-    This function applies DBSCAN clustering to the dataset with specified `eps` 
-    and `min_samples` parameters, and assigns the cluster labels to the data.
+    This function applies DBSCAN clustering to the specified columns of the 
+    dataset with the provided `eps` and `min_samples` parameters, and assigns 
+    the cluster labels to the data.
 
     Args:
-        df (pd.DataFrame): The dataset on which clustering will be applied. 
-        It should be a DataFrame for this function to work correctly.
+        df (pd.DataFrame): The dataset on which clustering will be applied. It 
+        should be a DataFrame with numerical features for clustering.
+        columns (list): List of column names to be used for DBSCAN clustering.
         eps (float): The maximum distance between two samples for them to be 
         considered as in the same neighborhood.
         min_samples (int): The number of samples in a neighborhood for a point 
@@ -255,12 +284,23 @@ def apply_dbscan_clustering(df: pd.DataFrame, eps: float, min_samples: int) -> p
         pd.DataFrame: The original dataset with an additional column 'cluster' 
         that contains the cluster labels for each data point.
 
+    Raises:
+        ValueError: If any of the columns to be used for clustering are not found in the DataFrame.
+    
     """
+    # Check if all specified variables exist in the DataFrame
+    for var in columns:
+        if var not in df.columns:
+            raise ValueError(f"Variable '{var}' not found in the DataFrame.")
+
+    # Select the specified columns for DBSCAN clustering
+    df_for_clustering = df[columns]
+
     # Apply DBSCAN clustering
     dbscan = DBSCAN(eps=eps, min_samples=min_samples)
-    clusters = dbscan.fit_predict(df)
+    clusters = dbscan.fit_predict(df_for_clustering)
 
-    # Add the cluster labels to the DataFrame
+    # Add the cluster labels to the original DataFrame
     df['cluster'] = clusters
 
     return df
@@ -324,6 +364,9 @@ def apply_pca(df: pd.DataFrame, variables: list, n_components: int) -> pd.DataFr
     Returns:
         pd.DataFrame: A DataFrame containing the new principal components and 
         other columns not affected by PCA.
+    
+    Raises:
+        ValueError: If any of the columns to be used for clustering are not found in the DataFrame.
 
     """
     # Check if all specified variables exist in the DataFrame

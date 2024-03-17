@@ -16,7 +16,7 @@ from src.business_logic.fmp.data_analytics import   clean_data_for_company_profi
 from src.services.plot import plot_scatterplot
 from src.services.ml import (detection_and_exclusion_of_outliers_ee,
     normalize_data, detection_and_exclusion_of_outliers_if,
-    detection_and_exclusion_of_left_quantile, apply_hierarchical_clustering, apply_pca)
+    detection_and_exclusion_of_left_quantile, apply_hierarchical_clustering, apply_pca, apply_dbscan_clustering, apply_kmeans_clustering, determine_cluster_numbers_with_kmeans)
 
 
 def main():
@@ -70,7 +70,9 @@ def main():
     print(df_normalized.describe())
 
     # Clustering
-    df_result = apply_hierarchical_clustering(df_normalized, variables)
+    scores = determine_cluster_numbers_with_kmeans(df_normalized, variables)
+    print(scores)
+    df_result = apply_kmeans_clustering(df_normalized, variables, scores)
 
     print(df_result.head())
     print(df_result['cluster'].value_counts())
@@ -78,7 +80,7 @@ def main():
 
     # Scatter plot
     df_pca = apply_pca(df_result, variables, 2)
-    df_pca = df_pca[df_pca['cluster'].isin([4, 5, 6, 9])]
+    df_pca = df_pca[df_pca['cluster'].isin([0, 1, 2])]
     plot_scatterplot(df_pca, 'PC1', 'PC2', 'cluster')
 
 
