@@ -16,6 +16,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.cluster import KMeans, DBSCAN
 from sklearn.metrics import silhouette_score
 from sklearn.decomposition import PCA
+from scipy.cluster.hierarchy import linkage, fcluster
 
 
 def detection_and_exclusion_of_outliers_ee(df: pd.DataFrame, variable: str,
@@ -213,9 +214,8 @@ def apply_kmeans_clustering(df: pd.DataFrame, scores: dict) -> pd.DataFrame:
     this optimal number of clusters, and assigns the cluster labels to the data.
 
     Args:
-        df (pd.DataFrame): The normalized dataset on which 
-        clustering will be applied. It should be a DataFrame for this function 
-        to work correctly.
+        df (pd.DataFrame): The normalized dataset on which clustering will be 
+        applied. It should be a DataFrame for this function to work correctly.
         scores (dict): A dictionary containing the number of clusters as keys 
         and the corresponding silhouette scores as values.
 
@@ -262,6 +262,51 @@ def apply_dbscan_clustering(df: pd.DataFrame, eps: float, min_samples: int) -> p
 
     # Add the cluster labels to the DataFrame
     df['cluster'] = clusters
+
+    return df
+
+def apply_hierarchical_clustering(df: pd.DataFrame, columns: list,
+    method: str = 'ward', max_d: float = 25.0) -> pd.DataFrame:
+    """
+    Applies hierarchical clustering to the dataset on specified columns and 
+    adds a cluster label, while retaining the original DataFrame structure and 
+    all initial columns.
+
+    This function applies hierarchical agglomerative clustering to the 
+    specified columns of the dataset and assigns cluster labels to the data 
+    based on the specified method and max distance (`max_d`) criteria for 
+    cutting the dendrogram.
+
+    Args:
+        df (pd.DataFrame): The dataset on which clustering will be applied. 
+        It should be a normalized DataFrame with numerical features for clustering.
+        columns (list): List of column names to be used for clustering.
+        method (str): The linkage criterion determines which distance to use
+        between sets of observation. The algorithm will merge the pairs of 
+        cluster that minimize this criterion. 'ward', 'complete', 'average', 
+        'single' are accepted. Defaults to 'ward'.
+        max_d (float): The maximum distance between two clusters for them to be 
+        considered as in the same cluster. This value determines the cut-off 
+        for the dendrogram and thus the number of clusters. Defaults to 25.0.
+
+    Returns:
+        pd.DataFrame: The original dataset with an additional column 'cluster' 
+        that contains the cluster labels for each data point.
+    
+    Raises:
+        ValueError: If any of the columns to be used for clustering are not found in the DataFrame.
+
+    """
+    # Check if all specified variables exist in the DataFrame
+    for var in columns:
+        if var not in df.columns:
+            raise ValueError(f"Variable '{var}' not found in the DataFrame.")
+
+    # Perform hierarchical/agglomerative clustering on the scaled data
+    z = linkage(df[columns], method=method)
+
+    # Assign cluster labels based on the max distance criteria to the original DataFrame
+    df['cluster'] = fcluster(z, max_d, criterion='distance')
 
     return df
 
