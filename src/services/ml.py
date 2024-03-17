@@ -89,6 +89,42 @@ def detection_and_exclusion_of_outliers_if(df: pd.DataFrame, variable: str,
     # Return a new DataFrame without the outliers
     return df_filtered
 
+def detection_and_exclusion_of_left_quantile(df: pd.DataFrame, variable: str,
+                                             quantile: float = 0.1) -> pd.DataFrame:
+    """
+    Removes records from a DataFrame that fall below a specified quantile
+    for a given variable. This can be useful for excluding outliers or 
+    anomalies in the lower part of a distribution, potentially helping to 
+    normalize the data or reduce skewness.
+
+    Args:
+        df (pd.DataFrame): The input DataFrame from which records will be filtered.
+        variable (str): The name of the column in `df` based on which the 
+        filtering will be performed. This column should contain numerical data.
+        quantile (float, optional): The quantile below which records will be 
+        removed. Must be a float between 0 and 1, exclusive. Defaults to 0.1, 
+        representing the 1st decile.
+
+    Returns:
+        pd.DataFrame: A DataFrame with records below the specified quantile of 
+        the `variable` column excluded.
+
+    Raises:
+        ValueError: If the `variable` is not found in the DataFrame's columns.
+
+    """
+    if variable not in df.columns:
+        raise ValueError(f"Variable '{variable}' not found in the DataFrame.")
+
+    # Step 1: Calculate the quantile value for the targeted column
+    left_quantile = df[variable].quantile(quantile)
+
+    # Step 2: Filter the DataFrame to exclude records in the specified quantile
+    df_filtered = df[df[variable] > left_quantile]
+
+    return df_filtered
+
+
 def normalize_data(df: pd.DataFrame, columns_to_normalize: list) -> pd.DataFrame:
     """
     Normalizes the numerical columns of DataFrame.
