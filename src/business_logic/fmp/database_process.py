@@ -13,6 +13,7 @@ implementation details of data retrieval or database interaction.
 
 import os
 import time
+import csv
 from dotenv import load_dotenv
 from sqlalchemy.exc import SQLAlchemyError
 from src.models.base import Session
@@ -233,3 +234,48 @@ class StockService:
         except Exception as e:
             raise RuntimeError(
                 f"Failed to update historical key metrics due to an unexpected error: {e}") from e
+
+    def fetch_sxxp_historical_components(self, date_str: str) -> None:
+        """
+        Updates the database with historical sxxp components from a given CSV file.
+
+        This function reads historical data for the STOXX Europe 600 index from 
+        a CSV file corresponding to the provided date and inserts this data 
+        into the database using the StockManager's insert function.
+
+        Args:
+            date_str (str): The date string used to locate the CSV file. The 
+            date string should be in the format 'YYYYMMDD'.
+
+        Raises:
+            RuntimeError: If a database error occurs during the insertion 
+            process. The error message includes the original error for 
+            debugging purposes. 
+            RuntimeError: If an unexpected error occurs during the data reading 
+            or insertion process. The error message includes the original error 
+            for further investigation.
+
+        Example:
+            fetch_sxxp_historical_component('20240301')
+        """
+        try:
+            # Initialize StockManager with the database session
+            stock_manager = StockManager(self.db_session)
+
+            # Define the file path based on the given date string
+            file_path = f'./raw_data/slpublic_sxxp_{date_str}.csv'
+
+            # Open the CSV file and read data
+            with open(file_path, 'r', encoding='utf8') as csvfile:
+                data = csv.DictReader(csvfile, delimiter=';')
+                # Inserting data into the database
+                stock_manager.insert_sxxp_historical_components(data)
+
+        except SQLAlchemyError as e:
+            raise RuntimeError(
+                f"Failed to update historical sxxp components due to database error: {e}"
+            ) from e
+        except Exception as e:
+            raise RuntimeError(
+                f"Failed to update historical sxxp components due to an unexpected error: {e}"
+            ) from e
