@@ -9,10 +9,9 @@ Created on 2024-03-09
 
 """
 
-from src.models.base import engine, Session, Base
+from src.models.base import Session
 from src.models.fmp.stock import StockSymbol, CompanyProfile, STOXXEurope600 # pylint: disable=unused-import
-from src.business_logic.fmp.database_process import StockService
-from src.services.sql import convert_stock_table_to_hypertable
+from src.dal.fmp.database_query import StockQuery
 
 
 def main():
@@ -33,17 +32,13 @@ def main():
         No exception is raised by this function.
     """
 
-    # Creating tables for imported models
-    Base.metadata.create_all(engine)
-
-    # Hypertable (TimeScaleDB)
-    convert_stock_table_to_hypertable('sxxp')
-
     db_session = Session()
-    stock_service = StockService(db_session)
+    stock_query = StockQuery(db_session)
 
-    stock_service.fetch_sxxp_historical_components('20240301')
+    stock_list = stock_query.extract_list_of_symbols_from_sxxp()
 
+    print(stock_list[:5])
+    print(len(stock_list))
 
 if __name__ == "__main__":
     main()
