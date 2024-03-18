@@ -20,6 +20,7 @@ from src.models.base import Session
 from src.models.fmp.stock import StockSymbol
 from src.services.api import get_jsonparsed_data
 from src.dal.fmp.database_operation import StockManager
+from src.dal.fmp.database_query import StockQuery
 
 load_dotenv()
 API_KEY_FMP = os.getenv('API_KEY_FMP')
@@ -279,3 +280,66 @@ class StockService:
             raise RuntimeError(
                 f"Failed to update historical sxxp components due to an unexpected error: {e}"
             ) from e
+
+    def fetch_dividends_in_batches(self, batch_size: int = 50, calls_per_minute: int = 300) -> None:
+        """
+        Fetches historical dividends for a list of stock symbols in batches, 
+        respecting the API rate limits.
+
+        This method retrieves stock symbols from the database and then fetches 
+        their historical dividend information using an external API. The 
+        fetching process is done in batches to comply with the rate limit 
+        imposed by the API, which is specified by the `calls_per_minute` 
+        parameter. If an error occurs while fetching the dividend information
+        for a specific symbol, the error is logged, and the method continues to 
+        process the next symbols in the batch. This ensures that temporary 
+        issues with specific symbols or API limits do not halt the entire 
+        fetching process.
+
+        Args:
+            batch_size (int): The number of symbols to process in each batch. 
+            This determines how many API calls are made in one batch before 
+            potentially pausing to respect the API rate limit. Default 50.
+            calls_per_minute (int): The maximum number of API calls allowed per 
+            minute. This is used to calculate the pause duration between 
+            batches if necessary to stay within the rate limit. Default 300 
+            (for FMP)
+
+        Raises:
+            ValueError: If unable to fetch stock symbols from the database, a 
+            ValueError is raised indicating the failure to initiate the 
+            fetching process.
+
+        Returns:
+            None: This method does not return a value. It performs operations
+            to fetch historical dividends and handles errors by logging them 
+            without interrupting the process.
+        """
+        try:
+            stock_query = StockQuery(self.db_session)
+            stock_symbol_query = stock_query.extract_list_of_symbols_from_sxxp()
+
+            if stock_symbol_query is None:
+                raise ValueError("Failed to fetch stock symbols from the database.")
+
+            symbols = [symbol[0] for symbol in stock_symbol_query]
+
+            for i in range(0, len(symbols), batch_size):
+                batch = symbols[i:i + batch_size]
+
+                for symbol in batch:
+                    # pylint: disable=broad-except
+                    try:
+                        self.fetch_historical_dividend(symbol)
+                    except Exception as api_error:
+                        print(f"Error fetching historical dividend for {symbol}: {api_error}")
+                    # pylint: enable=broad-except
+
+                # Calculate and respect the rate limit
+                if i + batch_size < len(symbols):  # Check if there's another batch
+                    sleep_time = 60 * batch_size / calls_per_minute
+                    print(f"Sleeping for {sleep_time:.2f} seconds to respect rate limit...")
+                    time.sleep(sleep_time)
+
+        except SQLAlchemyError as db_error:
+            raise ValueError("Database error occurred while fetching stock symbols.") from db_error
