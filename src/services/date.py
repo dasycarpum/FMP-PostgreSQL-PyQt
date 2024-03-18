@@ -37,11 +37,11 @@ def parse_date(date_str):
         None
 
     Note:
-        Currently supported date formats are "%Y-%m-%d" (e.g. "2023-03-11") and 
-        "%d/%m/%Y" (e.g. "11/03/2023").
+        Currently supported date formats are "%Y-%m-%d" (e.g. "2023-03-11"), 
+        "%d/%m/%Y" (e.g. "11/03/2023") and "%Y%m%d" (e.g. "20230311").
 
     """
-    for fmt in ("%Y-%m-%d", "%d/%m/%Y"):
+    for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%Y%m%d"):
         try:
             return datetime.strptime(date_str, fmt).date()
         except ValueError:

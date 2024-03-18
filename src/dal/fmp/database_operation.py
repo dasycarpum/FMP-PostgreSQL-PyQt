@@ -15,8 +15,9 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import SQLAlchemyError
 from src.models.base import Session
 from src.models.fmp.stock import (StockSymbol, CompanyProfile, DailyChartEOD,
-    HistoricalDividend, HistoricalKeyMetrics)
+    HistoricalDividend, HistoricalKeyMetrics, STOXXEurope600)
 from src.services.date import parse_date
+from src.services.various import safe_convert_to_int
 
 
 class StockManager:
@@ -450,5 +451,86 @@ class StockManager:
         except SQLAlchemyError as e:
             self.db_session.rollback()  # Rollback in case of error
             raise RuntimeError(f"Database error occurred: {e}") from e
+        finally:
+            self.db_session.close()
+
+    def insert_sxxp_historical_components(self, data):
+        """Inserts historical component data into the 'STOXXEurope600' table.
+
+        This function takes a list of dictionaries containing stock information 
+        and inserts each entry into the 'STOXXEurope600' table. If the entry 
+        already exists (determined by a unique constraint on 'stock_id' and 
+        'creation_date'), the insertion is skipped. The function handles cases 
+        where the company profile corresponding to an ISIN does not exist in 
+        the database.
+
+        Args:
+            data (list of dict): A list of dictionaries where each dictionary 
+            contains the data for one stock. Each dictionary should have the 
+            keys 'ISIN', 'Creation_Date', 'Index_Symbol', 'Index_Name', 'Index 
+            ISIN', and 'Rank (FINAL)' with appropriate values.
+
+        Raises:
+            RuntimeError: An error occurred when attempting to insert the data 
+            into the database. The original SQLAlchemyError is wrapped in a 
+            RuntimeError and raised.
+
+        Example:
+            data_to_insert = [
+                {'ISIN': 'US1234567890', 'Creation_Date': '20240301', 
+                'Index_Symbol': 'SXXP', 'Index_Name': 'STOXX Europe 600',
+                'Index ISIN': 'EU0009658202', 'Rank (FINAL)': 1},
+                ...
+            ]
+            insert_sxxp_historical_components(data_to_insert)
+        """
+        try:
+            for row in data:
+
+                date_parsed = parse_date(row['Creation_Date'])
+                isin = row['ISIN']
+                rank = safe_convert_to_int(row['Rank (FINAL)'])
+
+                # Get the stock_id of the CompanyProfile with the highest vol_avg for the given ISIN
+                stock_id_query = self.db_session.query(
+                    CompanyProfile.stock_id
+                ).filter(
+                    (CompanyProfile.isin == isin) and (CompanyProfile.is_actively_trading is True)
+                ).order_by(
+                    CompanyProfile.vol_avg.desc()  # Order by vol_avg in descending order
+                ).limit(1).scalar()  # Get the first record (the one with the highest vol_avg)
+
+
+                if stock_id_query and rank > 0:
+                    # Create a new STOXXEurope600 record
+                    stmt = insert(STOXXEurope600).values(
+                        stock_id=stock_id_query,
+                        date=date_parsed,
+                        index_symbol=row['Index_Symbol'],
+                        index_name=row['Index_Name'],
+                        index_isin=row['Index ISIN'],
+                        isin=isin,
+                        rank=rank
+                    )
+
+                    # Use the ON CONFLICT clause to ignore the insert if it would cause a conflict
+                    stmt = stmt.on_conflict_do_nothing(
+                        index_elements=['stock_id', 'date'])
+                    # Execute the statement
+                    self.db_session.execute(stmt)
+
+                else:
+                    # Handle case where stock symbol is not found
+                    print(f"Stock ISIN {isin} not found.")
+
+            # Commit the session to the database
+            self.db_session.commit()
+
+        except SQLAlchemyError as e:
+            self.db_session.rollback()  # Rollback in case of error
+            raise RuntimeError(f"Database error occurred: {e}") from e
+        except Exception as e:
+            self.db_session.rollback()  # Rollback in case of any other error
+            raise RuntimeError(f"An unexpected error occurred: {e}") from e
         finally:
             self.db_session.close()
