@@ -35,8 +35,7 @@ def main():
     db_session = Session()
     stock_service = StockService(db_session)
 
-    stock_service.fetch_dividends_in_batches()
-
+    stock_service.fetch_keys_metrics_in_batches()
 
 if __name__ == "__main__":
     main()
