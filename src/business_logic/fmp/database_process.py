@@ -13,6 +13,7 @@ implementation details of data retrieval or database interaction.
 
 import os
 import time
+from datetime import datetime, timedelta
 import csv
 from dotenv import load_dotenv
 from sqlalchemy.exc import SQLAlchemyError
@@ -81,6 +82,8 @@ class StockService:
         Raises:
             RuntimeError: If there's a database error or unexpected error during the update process.
 
+        Notes:
+            Examples of european exchanges : ["Copenhagen", "Madrid Stock Exchange", "Frankfurt Stock Exchange", "Paris", "Irish", "Lisbon", "Brussels", "Milan", "Amsterdam", "Helsinki", "Vienna", "Stockholm Stock Exchange", "Swiss Exchange", "London Stock Exchange", "Oslo Stock Exchange", "Athens", "Prague", "Warsaw Stock Exchange", "Riga", "Budapest", "Iceland"] # pylint: disable=line-too-long
         """
         # Fetch all symbols for the given exchange
         stock_symbol_query = self.db_session.query(
@@ -404,6 +407,74 @@ class StockService:
                 # Calculate and respect the rate limit
                 if i + batch_size < len(symbols):  # Check if there's another batch
                     sleep_time = 60 * batch_size / calls_per_minute
+                    print(f"Sleeping for {sleep_time:.2f} seconds to respect rate limit...")
+                    time.sleep(sleep_time)
+
+        except SQLAlchemyError as db_error:
+            raise ValueError("Database error occurred while fetching stock symbols.") from db_error
+
+    def fetch_daily_charts_by_period(self, calls_per_minute: int = 300) -> None:
+        """
+        Fetches daily charts for a list of stock symbols in batches, 
+        respecting the API rate limits and fetching data in 5-year intervals
+        starting from January 1, 1985, to today.
+
+        This method retrieves stock symbols from the database and then fetches 
+        their historical key metrics information using an external API. The 
+        fetching process is done in batches to comply with the rate limit 
+        imposed by the API, which is specified by the `calls_per_minute` 
+        parameter. If an error occurs while fetching the key metrics information
+        for a specific symbol, the error is logged, and the method continues to 
+        process the next symbols in the batch. This ensures that temporary 
+        issues with specific symbols or API limits do not halt the entire 
+        fetching process.
+
+        Args:
+            calls_per_minute (int): The maximum number of API calls allowed per 
+            minute. This is used to calculate the pause duration between 
+            batches if necessary to stay within the rate limit. Default to 300 
+            (for FMP).
+
+        Raises:
+            ValueError: If unable to fetch stock symbols from the database, a 
+            ValueError is raised indicating the failure to initiate the 
+            fetching process.
+
+        Returns:
+            None: This method does not return a value. It performs operations
+            to fetch historical dividends and handles errors by logging them 
+            without interrupting the process.
+        """
+        start_year = 1985
+        period_years = 5
+        start_date = datetime(start_year, 1, 1)
+        end_date = datetime.now()
+        try:
+            stock_query = StockQuery(self.db_session)
+            stock_symbol_query = stock_query.extract_list_of_symbols_from_sxxp()
+
+            if stock_symbol_query is None:
+                raise ValueError("Failed to fetch stock symbols from the database.")
+
+            symbols = [symbol[0] for symbol in stock_symbol_query]
+
+            for symbol in symbols:
+                current_start_date = start_date
+                while current_start_date < end_date:
+                    current_end_date = min(
+                        current_start_date + timedelta(days=365 * period_years), end_date)
+                    # pylint: disable=broad-except
+                    try:
+                        self.fetch_daily_chart_for_period(symbol,
+                            current_start_date.strftime('%Y-%m-%d'),
+                            current_end_date.strftime('%Y-%m-%d'))
+                    except Exception as api_error:
+                        print(f"Error fetching historical daily charts for {symbol} from {current_start_date} to {current_end_date}: {api_error}") # pylint: disable=line-too-long
+                    # pylint: enable=broad-except
+                    current_start_date = current_end_date + timedelta(days=1)
+
+                    # Respect the rate limit after each call
+                    sleep_time = 60 / calls_per_minute
                     print(f"Sleeping for {sleep_time:.2f} seconds to respect rate limit...")
                     time.sleep(sleep_time)
 
