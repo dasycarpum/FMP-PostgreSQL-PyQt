@@ -121,12 +121,14 @@ class StockService:
     def fetch_daily_chart_for_period(self, symbol: str, start_date: str,
         end_date:str) -> None:
         """
-        Fetches daily chart data for a given symbol and period and inserts it into the database.
+        Fetches daily chart data for a given symbol and period, and inserts it 
+        into the database.
 
         This function retrieves historical price data for a specified stock 
         symbol between the start and end dates from the Financial Modeling Prep 
-        API. It then inserts this data into the database using the 
-        `insert_daily_chart_data` method of the `StockManager` class. The 
+        API. It then updates the actual data and inserts the new data into the 
+        database using the 'update_daily_chart_data' and        
+        `insert_daily_chart_data` methods of the `StockManager` class. The 
         function handles database and unexpected errors by raising a 
         `RuntimeError`.
 
@@ -148,7 +150,10 @@ class StockService:
             # Data recovery
             data = get_jsonparsed_data(f"https://financialmodelingprep.com/api/v3/historical-price-full/{symbol}?from={start_date}&to={end_date}&apikey={API_KEY_FMP}") # pylint: disable=line-too-long
 
-            # Inserting data into the database
+            # Updating actual data into the database
+            stock_manager.update_daily_chart_data(data)
+
+            # Inserting new data into the database
             stock_manager.insert_daily_chart_data(data)
 
         except SQLAlchemyError as e:
