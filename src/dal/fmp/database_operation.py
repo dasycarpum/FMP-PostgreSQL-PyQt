@@ -11,6 +11,7 @@ via SQLAlchemy. These functions are part of the data access logic (DAL).
 
 """
 
+from sqlalchemy import update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import SQLAlchemyError
 from src.models.base import Session
@@ -223,6 +224,94 @@ class StockManager:
 
                     # Use insertion with ON CONFLICT DO NOTHING to avoid duplicate entries
                     stmt = stmt.on_conflict_do_nothing(index_elements=['stock_id', 'date'])
+                    self.db_session.execute(stmt)
+
+                self.db_session.commit()
+            else:
+                # Handle case where stock symbol is not found
+                print(f"Stock symbol {symbol} not found.")
+
+        except SQLAlchemyError as e:
+            self.db_session.rollback()  # Rollback in case of error
+            raise RuntimeError(f"Database error occurred: {e}") from e
+        finally:
+            self.db_session.close()
+
+    def update_daily_chart_data(self, data):
+        """
+        Updates daily chart data for a given stock symbol with the provided historical data.
+
+        This method updates rows in the 'dailychart' table with the new data
+        provided in the 'data' dictionary. Each entry in the 'data["historical"]
+        ' list corresponds to a set of chart data for a specific date. The 
+        method first finds the stock ID corresponding to the given symbol from 
+        the 'stocksymbol' table. Then, it updates each row identified by the 
+        stock ID and date with the new data. If the stock symbol does not exist 
+        in the 'stocksymbol' table, the function prints a message and exits.
+        The function uses a transactional approach, committing all updates at 
+        once. If an error occurs during the process, all changes are rolled 
+        back to maintain data integrity.
+
+        Args:
+            data (dict): A dictionary containing the stock symbol and 
+            historical data to update. The dictionary should have a structure 
+            similar to:
+                        {
+                            "symbol": "AAPL",
+                            "historical": [
+                                {
+                                    "date": "2023-03-15",
+                                    "open": 150.00,
+                                    "high": 155.00,
+                                    ...
+                                },
+                                ...
+                            ]
+                        }
+
+        Raises:
+            RuntimeError: An error occurred during the database operation, 
+            including any issues with finding the stock ID or updating the 
+            data. The error details are provided in the exception message, and 
+            all changes are rolled back.
+
+        Returns:
+            None: This method does not return any value.
+        
+        """
+        try:
+            # Parse the symbol outside the loop since it's common to all entries
+            symbol = data["symbol"]
+
+            # Find the stock id from the 'stocksymbol' table based on the symbol
+            stock_id_query = self.db_session.query(StockSymbol.id).filter(
+                StockSymbol.symbol == symbol).scalar()
+
+            # Proceed only if the stock symbol exists
+            if stock_id_query:
+                for item in data["historical"]:
+                    # Parse the date field to ensure it matches the Date format in the database
+                    date_parsed = parse_date(item.get("date"))
+
+                    # Prepare the update statement
+                    # It's essential to first define a way to identify which rows should be updated
+                    stmt = update(DailyChartEOD).where(
+                        DailyChartEOD.stock_id == stock_id_query,
+                        DailyChartEOD.date == date_parsed
+                    ).values(
+                        open=item.get("open"),
+                        high=item.get("high"),
+                        low=item.get("low"),
+                        close=item.get("close"),
+                        adj_close=item.get("adjClose"),
+                        volume=item.get("volume"),
+                        unadjusted_volume=item.get("unadjustedVolume"),
+                        change=item.get("change"),
+                        change_percent=item.get("changePercent"),
+                        vwap=item.get("vwap"),
+                    )
+
+                    # SQLAlchemy's `execute` method is used to execute the update statement
                     self.db_session.execute(stmt)
 
                 self.db_session.commit()
