@@ -35,8 +35,7 @@ def main():
     db_session = Session()
     stock_service = StockService(db_session)
 
-    stock_service.fetch_daily_charts_by_period()
-    # stock_service.fetch_daily_chart_for_period('TTE.PA', '2014-12-31', '2015-01-30')
+    stock_service.fetch_daily_chart_updating()
 
 if __name__ == "__main__":
     main()

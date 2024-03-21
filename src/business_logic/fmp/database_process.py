@@ -16,9 +16,11 @@ import time
 from datetime import datetime, timedelta
 import csv
 from dotenv import load_dotenv
+from sqlalchemy import func
+from sqlalchemy.orm import aliased
 from sqlalchemy.exc import SQLAlchemyError
 from src.models.base import Session
-from src.models.fmp.stock import StockSymbol
+from src.models.fmp.stock import StockSymbol, DailyChartEOD
 from src.services.api import get_jsonparsed_data
 from src.dal.fmp.database_operation import StockManager
 from src.dal.fmp.database_query import StockQuery
@@ -485,3 +487,74 @@ class StockService:
 
         except SQLAlchemyError as db_error:
             raise ValueError("Database error occurred while fetching stock symbols.") from db_error
+
+    def fetch_daily_chart_updating(self, calls_per_minute: int = 1000):
+        """
+        Updates the daily chart data for each stock symbol by fetching new data 
+        from a defined period.
+
+        This function first retrieves the most recent date available for each 
+        stock symbol in the database. Then, for each symbol, it calculates the 
+        start date for updating the daily chart data based on the most recent 
+        date available. If no date is available, a default start date is set. 
+        It then fetches and updates the daily chart data for each symbol for 
+        the period between the calculated start date and the current date.
+
+        Args:
+            calls_per_minute (int): The maximum number of API calls allowed per 
+            minute. This is used to calculate the pause duration between 
+            batches if necessary to stay within the rate limit. Default to 300 
+            (for FMP).
+
+        Returns:
+            None
+
+        Raises:
+            ValueError: If there is a failure in fetching data from the database.
+
+        """
+        try:
+            end_date = datetime.now().date()
+
+            # Join to fetch stock_id, symbol, and the most recent date for
+            # each symbol in a single query
+            stock_alias = aliased(StockSymbol)
+            most_recent_dates = self.db_session.query(
+                stock_alias.id,
+                stock_alias.symbol,
+                func.max(DailyChartEOD.date).label('most_recent_date')
+            ).join(DailyChartEOD, DailyChartEOD.stock_id == stock_alias.id
+            ).group_by(stock_alias.id
+            ).all()
+
+        except SQLAlchemyError as e:
+            raise ValueError(f"Failed to fetch data from database: {e}") from e
+
+        for _, symbol, most_recent_date in most_recent_dates:
+            try:
+                if most_recent_date is not None:
+                    # Calculate the start date for the update if a most recent date exists
+                    start_date = most_recent_date - timedelta(days=1)
+                else:
+                    # Set a default start date (possibly the company's creation
+                    # date or another) if no recent date exists
+                    start_date = end_date - timedelta(days=365)  # arbitrary start date
+
+                # Convert dates to string format for fetch_daily_chart_for_period`
+                self.fetch_daily_chart_for_period(
+                    symbol,
+                    start_date.strftime('%Y-%m-%d'),
+                    end_date.strftime('%Y-%m-%d')
+                )
+
+                # Respect the rate limit after each call
+                sleep_time = 60 / calls_per_minute
+                print(f"Sleeping for {sleep_time:.2f} seconds to respect rate limit...")
+                time.sleep(sleep_time)
+
+            except SQLAlchemyError as e:
+                print(f"Database error updating data for {symbol}: {e}")
+            except ValueError as e:
+                print(f"Value error for {symbol}: {e}")
+            except Exception as e: # pylint: disable=broad-except
+                print(f"Unexpected error for {symbol}: {e}")
