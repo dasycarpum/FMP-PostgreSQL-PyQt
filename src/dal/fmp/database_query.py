@@ -129,3 +129,54 @@ class StockQuery:
         finally:
             # Close session in all cases (on success or failure)
             self.db_session.close()
+
+    def get_unmatched_stock_ids(self, table: str) -> list:
+        """
+        Retrieves a list of stock_ids from the 'sxxp' table that do not exist 
+        in the specified table.
+
+        This function executes a SQL query to select all stock_ids from the 
+        'sxxp' table where there are no corresponding entries in the given 
+        `table`. It fetches the latest stock_id based on the maximum date for 
+        each stock_id that does not exist in the specified table.
+        
+        Args:
+            table (str): The name of the table to check against the 'sxxp' 
+            table for the existence of stock_ids.
+
+        Returns:
+            list: A list of stock_ids from the 'sxxp' table that are not 
+            present in the specified `table`.
+        
+        Raises:
+            RuntimeError: An error occurs during the database transaction. The 
+            error is logged, and the transaction is rolled back. This exception 
+            is raised if any SQLAlchemy related error occurs during the 
+            execution of the query.
+            
+        """
+        try:
+            query = text(
+                f"""
+                SELECT stock_id, MAX(date)
+                FROM sxxp
+                WHERE NOT EXISTS (
+                    SELECT 1
+                    FROM {table}
+                    WHERE {table}.stock_id = sxxp.stock_id
+                )
+                GROUP BY stock_id;
+                """)
+
+            data = self.db_session.execute(query).fetchall()
+
+            return [stock_id[0] for stock_id in data]
+
+        except SQLAlchemyError as e:
+            # Rollback the transaction in case of an error
+            self.db_session.rollback()
+            raise RuntimeError(f"An error occurred: {e}") from e
+
+        finally:
+            # Close session in all cases (on success or failure)
+            self.db_session.close()
