@@ -87,8 +87,8 @@ class StockQuery:
         database session is properly rolled back and closed in case of an error.
 
         Returns:
-            list: A list of tuples, where each tuple contains the symbol of a 
-            stock as its only element. 
+            list: A list of tuples, where each tuple contains the symbol and id 
+            of a stock as its only elements.
                 
         Raises:
             SQLAlchemyError: If any database operation fails, an error is 
@@ -108,7 +108,7 @@ class StockQuery:
                         stock_id \
                 ) \
                 SELECT \
-                    ss.symbol \
+                    ss.symbol, ss.id \
                 FROM \
                     stocksymbol ss \
                 INNER JOIN \
