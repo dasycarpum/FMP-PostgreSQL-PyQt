@@ -34,11 +34,9 @@ def main():
     """
 
     db_session = Session()
-    # stock_manager = StockManager(db_session)
-    # stock_manager.update_daily_chart_adj_close_for_dividend(21395, '2024-03-19', 0.74)
 
     stock_service = StockService(db_session)
-    stock_service.fetch_daily_chart_updating()
+    stock_service.process_and_update_dividends_by_date('2024-03-19')
 
 
 if __name__ == "__main__":
