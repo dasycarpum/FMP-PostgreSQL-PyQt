@@ -530,11 +530,15 @@ class StockService:
         except SQLAlchemyError as e:
             raise ValueError(f"Failed to fetch data from database: {e}") from e
 
+        i = 1
         for _, symbol, most_recent_date in most_recent_dates:
             try:
                 if most_recent_date is not None:
                     # Calculate the start date for the update if a most recent date exists
-                    start_date = most_recent_date - timedelta(days=1)
+                    if most_recent_date.weekday() == 0:  # 0 = Monday
+                        start_date = most_recent_date - timedelta(days=5)
+                    else:
+                        start_date = most_recent_date - timedelta(days=3)
                 else:
                     # Set a default start date (possibly the company's creation
                     # date or another) if no recent date exists
@@ -549,8 +553,9 @@ class StockService:
 
                 # Respect the rate limit after each call
                 sleep_time = 60 / calls_per_minute
-                print(f"Sleeping for {sleep_time:.2f} seconds to respect rate limit...")
+                print(f"{i} : {symbol} from {start_date} to {end_date}. Sleeping for {sleep_time:.2f} seconds.") # pylint: disable=line-too-long
                 time.sleep(sleep_time)
+                i = i+1
 
             except SQLAlchemyError as e:
                 print(f"Database error updating data for {symbol}: {e}")
