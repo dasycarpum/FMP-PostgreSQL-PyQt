@@ -172,6 +172,7 @@ class DailyChartEOD(Base):
     change = Column(Float)
     change_percent = Column(Float)
     vwap = Column(Float)
+    dividend_signature = Column(String(255))
 
     stocksymbol = relationship("StockSymbol", back_populates="daily_charts")
 

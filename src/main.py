@@ -11,7 +11,7 @@ Created on 2024-03-09
 
 from src.models.base import Session
 from src.models.fmp.stock import StockSymbol, CompanyProfile, STOXXEurope600 # pylint: disable=unused-import
-from src.dal.fmp.database_query import StockQuery
+from src.dal.fmp.database_operation import StockManager
 
 
 def main():
@@ -33,11 +33,9 @@ def main():
     """
 
     db_session = Session()
-    stock_query = StockQuery(db_session)
+    stock_manager = StockManager(db_session)
 
-    data = stock_query.get_unmatched_stock_ids('keymetrics')
-
-    print(data)
+    stock_manager.update_daily_chart_adj_close_for_dividend(21395, '2024-03-19', 0.74)
 
 
 if __name__ == "__main__":
