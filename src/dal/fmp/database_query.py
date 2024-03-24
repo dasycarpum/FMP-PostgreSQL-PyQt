@@ -180,3 +180,75 @@ class StockQuery:
         finally:
             # Close session in all cases (on success or failure)
             self.db_session.close()
+
+    def get_undeclared_dividends(self, start_date: str) -> list:
+        """
+        The aim is to identify stocks where no dividend has been declared by 
+        FMP, but which are nonetheless subject to an adjustment : the function 
+        retrieves the most recent date for each stock where the 'close' and 
+        'adj_close' values differ, starting from a specified date, and where 
+        the 'dividend_signature' is NULL.
+
+        This function executes a SQL query using a Common Table Expression 
+        (CTE) to rank differences between 'close' and 'adj_close' values for 
+        each 'stock_id', starting from a given date. It selects the most recent 
+        date (highest rank) for each stock where these conditions are met. The 
+        difference between 'close' and 'adj_close' is calculated as 'dividend',
+        and only records without a 'dividend_signature' are considered.
+
+        Args:
+            start_date (str): The starting date from which to search for 
+            differences, in 'YYYY-MM-DD' format.
+
+        Returns:
+            list: A list of tuples, each containing the 'stock_id', the most 
+            recent 'date' (as a string in 'YYYY-MM-DD' format) where 'close' 
+            and 'adj_close' differ, and the calculated 'dividend'.
+        Raises:
+            RuntimeError: If any error occurs during the execution of the SQL 
+            query, with the error message included.
+
+        Example:
+            >>> get_undeclared_dividends('2024-03-15')
+            # This might return: [(28117, '2024-03-19', 10.0), ...] indicating 
+            # the stock_id, date, and dividend where applicable.
+        """
+        try:
+            query = text(f"""
+            WITH RankedDifferences AS (
+                SELECT
+                    stock_id,
+                    date,
+                    close,
+                    adj_close,
+                    dividend_signature,
+                    ROW_NUMBER() OVER (PARTITION BY stock_id ORDER BY date DESC) as rn
+                FROM
+                    dailychart
+                WHERE
+                    close != adj_close AND date > '{start_date}'
+            )
+            SELECT
+                stock_id,
+                date,
+                (close-adj_close) as dividend
+            FROM
+                RankedDifferences
+            WHERE
+                rn = 1 AND dividend_signature IS NULL;
+            """)
+
+            data = self.db_session.execute(query).fetchall()
+
+            return [(
+                stock_id, date.strftime('%Y-%m-%d'), round(dividend,3)
+                ) for stock_id, date, dividend in data]
+
+        except SQLAlchemyError as e:
+            # Rollback the transaction in case of an error
+            self.db_session.rollback()
+            raise RuntimeError(f"An error occurred: {e}") from e
+
+        finally:
+            # Close session in all cases (on success or failure)
+            self.db_session.close()
