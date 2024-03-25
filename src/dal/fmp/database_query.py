@@ -254,44 +254,49 @@ class StockQuery:
             # Close session in all cases (on success or failure)
             self.db_session.close()
 
-    def get_stocksymbols_by_exchange(self) -> pd.DataFrame:
+    def get_stocksymbols_by_column(self, column: str) -> pd.DataFrame:
         """
-        Retrieves a list of stock symbols grouped by exchange from the database.
+        Retrieves stock symbols from the database, grouped and aggregated by a specified column.
 
-        This function executes a SQL query to the stocksymbol table, grouping 
-        symbols by their exchange. It returns a list of tuples, each containing 
-        the exchange name, a list of symbols associated with that exchange, and 
-        the count of symbols for each exchange. The results are ordered by the 
-        count of symbols in ascending order.
+        This method dynamically groups stock symbols based on a specified 
+        column in the 'stocksymbol' table, such as 'exchange' or 'type_'. It 
+        constructs and executes a SQL query that groups symbols by the 
+        specified column, aggregates them into a list per group, and counts the 
+        number of symbols in each group. The results are returned as a pandas 
+        DataFrame, which includes the name of the group (based on the specified 
+        column), a list of symbols in each group, and the count of symbols per 
+        group. The DataFrame is ordered by the count of symbols in ascending 
+        order.
 
-        The function handles any SQLAlchemy errors by rolling back the database 
-        session and re-raising a RuntimeError, ensuring that the database 
-        session is properly managed and closed in all cases.
+        Args:
+            column (str): The name of the column by which to group stock 
+            symbols. This should be a valid column name in the 'stocksymbol' table.
 
         Returns:
-            pandas.DataFrame: With 3 columns containing:
-                - exchange (str): The name of the exchange.
-                - list_symbols (list): A list of stock symbols associated with the exchange.
-                - count_symbols (int): The number of symbols associated with the exchange.
+            pandas.DataFrame: A DataFrame containing three columns:
+                - The specified column name (str): The name of the group.
+                - 'list_symbols' (list): A list of stock symbols associated with each group.
+                - 'count_symbols' (int): The number of symbols associated with each group.
 
         Raises:
-            RuntimeError: An error occurred when executing the SQL query or 
-            processing the data. The original error message from SQLAlchemy is 
-            included in the exception message.
+            RuntimeError: If an error occurs during query execution or data 
+            processing, a RuntimeError is raised, including the original error 
+            message from SQLAlchemy.
+            
         """
         try:
-            query = text("""
-            SELECT exchange, 
+            query = text(f"""
+            SELECT {column}, 
                    ARRAY_AGG(symbol) AS list_symbols,
                    COUNT(symbol) AS count_symbols
             FROM stocksymbol
-            GROUP BY exchange
+            GROUP BY {column}
             ORDER BY count_symbols;
             """)
 
             data = self.db_session.execute(query).fetchall()
 
-            return pd.DataFrame(data, columns=['exchange', 'list_symbols', 'count_symbols'])
+            return pd.DataFrame(data, columns=[column, 'list_symbols', 'count_symbols'])
 
         except SQLAlchemyError as e:
             # Rollback the transaction in case of an error

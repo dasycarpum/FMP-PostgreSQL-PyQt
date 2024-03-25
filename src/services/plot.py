@@ -12,6 +12,7 @@ Created on 2024-03-15
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
+import squarify
 
 
 def plot_boxplots(df: pd.DataFrame, variables: list) -> None:
@@ -211,3 +212,42 @@ def plot_horizontal_barchart(df: pd.DataFrame, x_var: str, y_var:str,
 
     # Save the graph display
     plt.savefig('figure/horizontal_barchart.png')
+
+def plot_treemap(df: pd.DataFrame, title: str) -> None:
+    """
+    Generates and saves a treemap visualization from a pandas DataFrame.
+
+    The function assumes the DataFrame has two specific columns: the first 
+    column for counts (numeric values) and the second column for labels (text 
+    values). The treemap plot visualizes the proportion of counts associated 
+    with each label. The plot is saved as a PNG file in a directory named 
+    'figure'.
+
+    Args:
+        - df (pd.DataFrame): A DataFrame with two columns, where one contains 
+        numeric values (counts) and the other contains corresponding labels.
+        - title (str): The title of the treemap plot.
+
+    Returns:
+        None
+
+    """
+    # Ensure the DataFrame has exactly two columns
+    if df.shape[1] != 2:
+        raise ValueError("DataFrame must have exactly two columns.")
+
+    # Assuming the first column contains counts and the second contains labels
+    counts = df.iloc[:, 0].tolist()
+    labels = df.iloc[:, 1].tolist()
+
+    # Choosing a color palette with Matplotlib
+    palette = plt.cm.viridis # pylint: disable=no-member
+    color = [palette(i / len(labels)) for i in range(len(labels))]
+
+    plt.figure(figsize=(10, 8))
+    squarify.plot(sizes=counts, label=labels, color=color, alpha=0.7)
+    plt.title(title)
+    plt.axis('off')  # Removes the axes for a cleaner look
+
+    # Save the graph display
+    plt.savefig('figure/treemap.png')

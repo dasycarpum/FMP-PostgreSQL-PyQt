@@ -11,9 +11,11 @@ implementation details of data retrieval or database interaction.
 
 """
 
+from sqlalchemy.exc import SQLAlchemyError
 from src.models.base import Session
 from src.dal.fmp.database_query import StockQuery
-from src.services.plot import plot_horizontal_barchart
+from src.services import plot
+
 
 class StockReporting:
     """Reporting class for analytical tables of stock market databases."""
@@ -29,24 +31,19 @@ class StockReporting:
 
     def report_stocksymbol_table(self) -> None:
         """
-        Generates a report on stock symbols per exchange and plots a horizontal bar chart.
+        Generates and saves visual reports for stock symbols categorized by 'exchange' and 'type_'.
 
-        This method queries the stock symbols by exchange from the database 
-        using a predefined query class (StockQuery) and its method 
-        (get_stocksymbols_by_exchange). It then prepares the data for 
-        visualization by replacing any missing 'exchange' values with 
-        'Unknown'. After preparing the data, it calculates the total number of 
-        symbols across all exchanges. This total is included in the title of 
-        the horizontal bar chart to provide a comprehensive overview of the 
-        data. Finally, it utilizes the 'plot_horizontal_barchart' function to 
-        generate and save a horizontal bar chart visualization of the number of 
-        symbols per exchange, highlighting the distribution of symbols across 
-        different exchanges.
+        This method iterates over specified columns ('exchange' and 'type_') to 
+        generate reports on stock symbols. For each category, it queries the 
+        database using the StockQuery class and its method 
+        get_stocksymbols_by_column, ensuring any missing values are replaced 
+        with 'Unknown'. Depending on the category, it either generates a 
+        horizontal bar chart or a treemap to visualize the distribution of 
+        stock symbols.
 
         Attributes:
-            - Uses an instance of StockQuery for querying the database, which 
-            requires a database session (self.db_session) to be passed at 
-            initialization.
+            Uses an instance attribute `db_session` for database queries, which 
+            must be initialized with a valid database session before calling this method.
 
         Args:
             None
@@ -54,18 +51,34 @@ class StockReporting:
         Returns:
             None
 
+        Raises:
+            RuntimeError: If there's a database error or unexpected error during the update process.
+
         """
-        stock_query = StockQuery(self.db_session)
+        try:
+            stock_query = StockQuery(self.db_session)
 
-        df = stock_query.get_stocksymbols_by_exchange()
+            columns = ['exchange', 'type_']
 
-        # Fill missing 'exchange' values with 'Unknown'
-        df['exchange'] = df['exchange'].fillna('Unknown')
+            for column in columns:
+                df = stock_query.get_stocksymbols_by_column(column)
 
-        # Calculate the total number of symbols
-        sum_symbols = df['count_symbols'].sum()
-        title = f"Number of Symbols per Exchange (Total = {str(sum_symbols)})"
+                # Fill missing 'exchange' values with 'Unknown'
+                df[column] = df[column].fillna('Unknown')
 
-        # Generate and save the horizontal bar chart
-        plot_horizontal_barchart(df, 'count_symbols', 'exchange', title)
-    
+                # Calculate the total number of symbols
+                sum_symbols = df['count_symbols'].sum()
+                title = f"Number of symbols per {column} (Total = {str(sum_symbols)})"
+
+                # Generate and save the plot
+                if column == columns[0]:
+                    plot.plot_horizontal_barchart(df, 'count_symbols', column, title)
+                else:
+                    plot.plot_treemap(df[['count_symbols', column]], title)
+
+        except SQLAlchemyError as e:
+            raise RuntimeError(
+                f"Failed to report stocksymbol table due to database error: {e}") from e
+        except Exception as e:
+            raise RuntimeError(
+                f"Failed to report stocksymbol table due to an unexpected error: {e}") from e
