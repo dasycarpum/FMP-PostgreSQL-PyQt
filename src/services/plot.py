@@ -162,3 +162,52 @@ def plot_scatterplot(df: pd.DataFrame, x_var: str, y_var: str, hue_var: str):
 
     # Graph display
     plt.savefig('figure/scatterplot.png')
+
+def plot_horizontal_barchart(df: pd.DataFrame, x_var: str, y_var:str,
+    title: str):
+    """
+    Plots a horizontal bar chart from a pandas DataFrame with annotations for each bar.
+
+    This function generates a horizontal bar chart for the specified columns in 
+    a pandas DataFrame. It ensures the specified columns exist in the 
+    DataFrame, creates the chart, and annotates each bar with its value. The 
+    chart is saved as a PNG file.
+
+    Args:
+        - df (pd.DataFrame): The DataFrame containing the data to plot.
+        - x_var (str): The name of the column in df to be plotted on the 
+        x-axis. Represents the variable values of each bar.
+        - y_var (str): The name of the column in df to be plotted on the 
+        y-axis. Represents the labels of each bar.
+        - title (str): The title of the bar chart.
+    
+    Returns:
+        None
+
+    Raises:
+        - ValueError: If the specified columns (x_var or y_var) do not exist in the DataFrame.
+
+    """
+    # Ensure the 'exchange' and 'count_symbols' columns exist in the DataFrame
+    if x_var not in df.columns or y_var not in df.columns:
+        raise ValueError(f"The DataFrame must contain the columns '{x_var}' and '{y_var}'.")
+
+    # Create the horizontal bar chart
+    plt.figure(figsize=(10, 17))
+    bars = plt.barh(df[y_var], df[x_var], color='skyblue')
+
+     # Annotate each bar with its value
+    for bar_value in bars:
+        width = bar_value.get_width()
+        plt.text(width, bar_value.get_y() + bar_value.get_height()/2,
+                 f'{width}',  # Text to display
+                 va='center',  # Center vertically in the bar
+                 ha='left')    # Align text to the left (inside the bar)
+
+    plt.xlabel(x_var)
+    plt.ylabel(y_var)
+    plt.title(title)
+    plt.tight_layout()
+
+    # Save the graph display
+    plt.savefig('figure/horizontal_barchart.png')

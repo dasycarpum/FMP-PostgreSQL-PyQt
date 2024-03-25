@@ -11,7 +11,8 @@ Created on 2024-03-09
 
 from src.models.base import Session
 from src.models.fmp.stock import StockSymbol, CompanyProfile, STOXXEurope600 # pylint: disable=unused-import
-from src.dal.fmp.database_query import StockQuery
+# from src.dal.fmp.database_query import StockQuery
+from src.business_logic.fmp.database_reporting import StockReporting
 
 
 def main():
@@ -34,10 +35,11 @@ def main():
 
     db_session = Session()
 
-    stock_query = StockQuery(db_session)
-    df = stock_query.get_stocksymbols_by_exchange()
+    # stock_query = StockQuery(db_session)
+    # df = stock_query.get_stocksymbols_by_exchange()
 
-    print(df)
+    stock_reporting = StockReporting(db_session)
+    stock_reporting.report_stocksymbol_table()
 
 
 if __name__ == "__main__":
