@@ -11,6 +11,7 @@ part of the data access logic (DAL).
 
 """
 
+import pandas as pd
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 from src.models.base import Session
@@ -243,6 +244,54 @@ class StockQuery:
             return [(
                 stock_id, date.strftime('%Y-%m-%d'), round(dividend,3)
                 ) for stock_id, date, dividend in data]
+
+        except SQLAlchemyError as e:
+            # Rollback the transaction in case of an error
+            self.db_session.rollback()
+            raise RuntimeError(f"An error occurred: {e}") from e
+
+        finally:
+            # Close session in all cases (on success or failure)
+            self.db_session.close()
+
+    def get_stocksymbols_by_exchange(self) -> pd.DataFrame:
+        """
+        Retrieves a list of stock symbols grouped by exchange from the database.
+
+        This function executes a SQL query to the stocksymbol table, grouping 
+        symbols by their exchange. It returns a list of tuples, each containing 
+        the exchange name, a list of symbols associated with that exchange, and 
+        the count of symbols for each exchange. The results are ordered by the 
+        count of symbols in ascending order.
+
+        The function handles any SQLAlchemy errors by rolling back the database 
+        session and re-raising a RuntimeError, ensuring that the database 
+        session is properly managed and closed in all cases.
+
+        Returns:
+            pandas.DataFrame: With 3 columns containing:
+                - exchange (str): The name of the exchange.
+                - list_symbols (list): A list of stock symbols associated with the exchange.
+                - count_symbols (int): The number of symbols associated with the exchange.
+
+        Raises:
+            RuntimeError: An error occurred when executing the SQL query or 
+            processing the data. The original error message from SQLAlchemy is 
+            included in the exception message.
+        """
+        try:
+            query = text("""
+            SELECT exchange, 
+                   ARRAY_AGG(symbol) AS list_symbols,
+                   COUNT(symbol) AS count_symbols
+            FROM stocksymbol
+            GROUP BY exchange
+            ORDER BY count_symbols;
+            """)
+
+            data = self.db_session.execute(query).fetchall()
+
+            return pd.DataFrame(data, columns=['exchange', 'list_symbols', 'count_symbols'])
 
         except SQLAlchemyError as e:
             # Rollback the transaction in case of an error
