@@ -11,6 +11,7 @@ implementation details of data retrieval or database interaction.
 
 """
 
+import pandas as pd
 from sqlalchemy.exc import SQLAlchemyError
 from src.models.base import Session
 from src.dal.fmp.database_query import StockQuery
@@ -74,7 +75,7 @@ class StockReporting:
                 if column == columns[0]:
                     plot.plot_horizontal_barchart(df, 'count_symbols', column, title)
                 else:
-                    plot.plot_treemap(df[['count_symbols', column]], title)
+                    plot.plot_treemap(df[[column, 'count_symbols']], title)
 
         except SQLAlchemyError as e:
             raise RuntimeError(
@@ -132,3 +133,65 @@ class StockReporting:
         except Exception as e:
             raise RuntimeError(
                 f"Failed to report companyprofile table due to an unexpected error: {e}") from e
+
+    def report_sxxp_table(self) -> None:
+        """
+        Generates various plots to report on the STOXX Europe 600 index by 
+        querying the company profile data.
+
+        This method retrieves data related to the STOXX Europe 600 index from 
+        the database, focusing on company profiles. It visualizes this data 
+        through several plots:
+        - Distribution plots for beta, vol_avg (average volume), and mkt_cap 
+        (market capitalization).
+        - A treemap showing the number of stocks per currency.
+        - Another treemap displaying the number of stocks per sector.
+        - A horizontal bar chart indicating the number of stocks per country.
+        - A table showing counts of boolean values like is_etf, 
+        is_actively_trading, is_adr, and is_fund.
+
+        Raises:
+            RuntimeError: If there is a database-related error during the query 
+            execution, encapsulating the original SQLAlchemyError. Also raised 
+            if there is any other unexpected error during the execution of this 
+            method, with details of the caught exception.
+
+        """
+        try:
+            stock_query = StockQuery(self.db_session)
+
+            # Retrieve DataFrame with STOXX Europe 600 index company profiles.
+            df = stock_query.get_sxxp_by_company_profile()
+
+            # Plotting distributions of beta, vol_avg, and mkt_cap for the retrieved companies.
+            plot.plot_distributions(df, ['beta', 'vol_avg', 'mkt_cap'],
+            "STOXX Europe 600 index : distributions of 3 variables")
+
+            # Creating and plotting a treemap of the number of stocks per currency.
+            df_currency = df['currency'].value_counts(sort=True).reset_index()
+            plot.plot_treemap(df_currency, "STOXX Europe 600 index : number of stocks per currency")
+
+            # Creating and plotting a treemap of the number of stocks per sector.
+            df_sector = df['sector'].value_counts(sort=True).reset_index()
+            plot.plot_treemap(df_sector, "STOXX Europe 600 index : number of stocks per sector")
+
+            # Sorting the count of stocks per country and plotting a horizontal bar chart.
+            df_country = df['country'].value_counts().reset_index().sort_values(
+                by='count', ascending=True)
+            plot.plot_horizontal_barchart(
+                df_country, 'count', 'country',
+                "STOXX Europe 600 index : number of stocks per country")
+
+            # Counting boolean values and preparing a DataFrame for plotting.
+            df_bool = df[['is_etf', 'is_actively_trading',
+                          'is_adr', 'is_fund']].apply(pd.Series.value_counts)
+            print(df_bool)
+            print(df[~df['is_actively_trading']])
+            print(df[df['is_fund']])
+
+        except SQLAlchemyError as e:
+            raise RuntimeError(
+                f"Failed to report sxxp table due to database error: {e}") from e
+        except Exception as e:
+            raise RuntimeError(
+                f"Failed to report sxxp table due to an unexpected error: {e}") from e

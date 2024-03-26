@@ -59,7 +59,7 @@ def plot_boxplots(df: pd.DataFrame, variables: list) -> None:
     plt.savefig('figure/boxplots.png')
 
 
-def plot_distributions(df: pd.DataFrame, variables: list) -> None:
+def plot_distributions(df: pd.DataFrame, variables: list, title: str = "") -> None:
     """
     Generates histograms for the specified variables from the given DataFrame.
 
@@ -67,6 +67,7 @@ def plot_distributions(df: pd.DataFrame, variables: list) -> None:
         df (pandas.DataFrame): The DataFrame containing the data.
         variables (list of str): A list of strings representing the column 
         names for which distributions are to be generated.
+        title (str) : : The title of the histogram chart.
 
     Returns:
         None. Displays the distributions of the specified variables.
@@ -93,9 +94,13 @@ def plot_distributions(df: pd.DataFrame, variables: list) -> None:
         axes[i].hist(data, bins=30, alpha=0.7, label=var, color='skyblue', edgecolor='black')
         axes[i].set_title(var)
 
-    # Automatically adjusts subplots to fit within the figure area
-    plt.tight_layout()
+    # Set a single title for the entire figure
+    fig.suptitle(title)
 
+    # Adjust layout to make room for the figure title and ensure plots are not overlapping
+    plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+
+    # Save the figure to a file
     plt.savefig('figure/distributions.png')
 
 def display_correlation_matrix(df: pd.DataFrame, variables: list) -> None:
@@ -217,8 +222,8 @@ def plot_treemap(df: pd.DataFrame, title: str) -> None:
     """
     Generates and saves a treemap visualization from a pandas DataFrame.
 
-    The function assumes the DataFrame has two specific columns: the first 
-    column for counts (numeric values) and the second column for labels (text 
+    The function assumes the DataFrame has two specific columns: the second 
+    column for counts (numeric values) and the first column for labels (text 
     values). The treemap plot visualizes the proportion of counts associated 
     with each label. The plot is saved as a PNG file in a directory named 
     'figure'.
@@ -237,15 +242,19 @@ def plot_treemap(df: pd.DataFrame, title: str) -> None:
         raise ValueError("DataFrame must have exactly two columns.")
 
     # Assuming the first column contains counts and the second contains labels
-    counts = df.iloc[:, 0].tolist()
-    labels = df.iloc[:, 1].tolist()
+    counts = df.iloc[:, 1].tolist()
+    labels = df.iloc[:, 0].tolist()
+
+    # Concatenate labels and counts
+    labels_with_counts = [f"{label}: {count}" for label, count in zip(labels, counts)]
 
     # Choosing a color palette with Matplotlib
     palette = plt.cm.viridis # pylint: disable=no-member
     color = [palette(i / len(labels)) for i in range(len(labels))]
 
     plt.figure(figsize=(10, 8))
-    squarify.plot(sizes=counts, label=labels, color=color, alpha=0.7)
+    squarify.plot(sizes=counts, label=labels_with_counts,
+                  color=color, alpha=0.7)
     plt.title(title)
     plt.axis('off')  # Removes the axes for a cleaner look
 
