@@ -306,3 +306,60 @@ class StockQuery:
         finally:
             # Close session in all cases (on success or failure)
             self.db_session.close()
+
+    def get_companyprofiles_by_column(self, column: str) -> pd.DataFrame:
+        """
+        Retrieves a pandas DataFrame containing the values of a specified 
+        column, a list of stock IDs, and the count of stock IDs from the 
+        companyprofile table, filtered by companies that are actively trading, 
+        and are neither ETFs nor funds. The rows are grouped by the specified 
+        column and ordered by the count of stock IDs.
+
+        This method executes a SQL query on the companyprofile table, 
+        leveraging SQLAlchemy for database interaction. It ensures transaction 
+        integrity by handling exceptions and rolling back the transaction if 
+        necessary. The database session is closed in all cases, ensuring no 
+        resources are leaked.
+
+        Args:
+            column (str): The name of the column in the companyprofile table to 
+            retrieve and group by in the resulting DataFrame.
+
+        Returns:
+            pd.DataFrame: A pandas DataFrame with three columns: the specified 
+            column name, 'list_stock_ids' (a list of stock IDs for each group), 
+            and 'count_stock_ids' (the count of stock IDs in each group). The 
+            DataFrame is ordered by 'count_stock_ids'.
+
+        Raises:
+            RuntimeError: An error occurred during the database transaction or 
+            query execution. The original SQLAlchemyError is wrapped in this 
+            RuntimeError, and the database session is rolled back and closed 
+            before re-raising the error.
+
+        """
+        try:
+            query = text(f"""
+            SELECT {column}, 
+                   ARRAY_AGG(stock_id) AS list_stock_ids,
+                   COUNT(stock_id) AS count_stock_ids
+            FROM companyprofile
+            WHERE is_actively_trading IS TRUE
+                  AND is_etf IS FALSE 
+                  AND is_fund IS FALSE
+            GROUP BY {column}
+            ORDER BY count_stock_ids;
+            """)
+
+            data = self.db_session.execute(query).fetchall()
+
+            return pd.DataFrame(data, columns=[column, 'list_stock_ids', 'count_stock_ids'])
+
+        except SQLAlchemyError as e:
+            # Rollback the transaction in case of an error
+            self.db_session.rollback()
+            raise RuntimeError(f"An error occurred: {e}") from e
+
+        finally:
+            # Close session in all cases (on success or failure)
+            self.db_session.close()
