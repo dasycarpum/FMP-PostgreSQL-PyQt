@@ -363,3 +363,42 @@ class StockQuery:
         finally:
             # Close session in all cases (on success or failure)
             self.db_session.close()
+
+    def get_sxxp_by_company_profile(self) -> pd.DataFrame:
+        """
+        Retrieves a pandas DataFrame containing all records from the 'sxxp' 
+        table joined with the 'companyprofile' table on the 'stock_id' column. 
+        This join operation includes all columns from both tables, providing a 
+        comprehensive view of the STOXX Europe 600 index companies along with 
+        their profiles.
+
+        Returns:
+            pd.DataFrame: A pandas DataFrame comprising all fields from the 
+            'sxxp' and 'companyprofile' tables, merged on the 'stock_id'. 
+
+        Raises:
+            RuntimeError: An error occurred during the database transaction or 
+            query execution. This exception wraps the original SQLAlchemyError, 
+            ensuring that the database session is rolled back and closed before 
+            re-raising the error.
+
+        """
+        try:
+            query = text("""
+            SELECT * FROM sxxp
+            LEFT JOIN companyprofile 
+                ON sxxp.stock_id = companyprofile.stock_id;
+            """)
+
+            data = self.db_session.execute(query).fetchall()
+
+            return pd.DataFrame(data)
+
+        except SQLAlchemyError as e:
+            # Rollback the transaction in case of an error
+            self.db_session.rollback()
+            raise RuntimeError(f"An error occurred: {e}") from e
+
+        finally:
+            # Close session in all cases (on success or failure)
+            self.db_session.close()
