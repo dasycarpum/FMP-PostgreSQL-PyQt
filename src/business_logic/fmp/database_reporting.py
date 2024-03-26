@@ -82,3 +82,53 @@ class StockReporting:
         except Exception as e:
             raise RuntimeError(
                 f"Failed to report stocksymbol table due to an unexpected error: {e}") from e
+
+    def report_companyprofile_table(self) -> None:
+        """
+        Generates and saves visual reports for company profiles categorized by 
+        'currency', 'sector' and 'country'
+
+        This method iterates over specified columns to generate reports on 
+        stock ids. For each category, it queries the database using the 
+        StockQuery class and its method get_companyprofiles_by_column, ensuring 
+        any missing values are replaced with 'Unknown'. It generates a 
+        horizontal bar chart to visualize the distribution of stock ids.
+
+        Attributes:
+            Uses an instance attribute `db_session` for database queries, which 
+            must be initialized with a valid database session before calling this method.
+
+        Args:
+            None
+
+        Returns:
+            None
+
+        Raises:
+            RuntimeError: If there's a database error or unexpected error during the update process.
+
+        """
+        try:
+            stock_query = StockQuery(self.db_session)
+
+            columns = ['currency', 'sector', 'country']
+
+            for column in columns:
+                df = stock_query.get_companyprofiles_by_column(column)
+
+                # Fill missing 'exchange' values with 'Unknown'
+                df[column] = df[column].fillna('Unknown')
+
+                # Calculate the total number of symbols
+                sum_symbols = df['count_stock_ids'].sum()
+                title = f"Number of stock ids per {column} (Total = {str(sum_symbols)})"
+
+                # Generate and save the plot
+                plot.plot_horizontal_barchart(df, 'count_stock_ids', column, title)
+
+        except SQLAlchemyError as e:
+            raise RuntimeError(
+                f"Failed to report companyprofile table due to database error: {e}") from e
+        except Exception as e:
+            raise RuntimeError(
+                f"Failed to report companyprofile table due to an unexpected error: {e}") from e
