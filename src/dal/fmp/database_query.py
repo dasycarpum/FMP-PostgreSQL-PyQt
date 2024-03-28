@@ -456,3 +456,72 @@ class StockQuery:
         finally:
             # Close session in all cases (on success or failure)
             self.db_session.close()
+
+    def get_dailychart_missing_value_by_column(self, column: str) -> pd.DataFrame:
+        """
+        Retrieves a list of action identifiers from the `dailychart` table 
+        which has at least one null value in the specified column ('volume', 
+        'close', ...).
+
+        The function dynamically incorporates the specified column name into 
+        the SQL query to perform the aggregation and calculations. It filters 
+        records based on a minimum date set to one year from the current date.
+
+        Args:
+            column (str): The name of the column to check for zero values.
+
+        Returns:
+            pd.DataFrame: A DataFrame with each row containing:
+                        - stock_id: The unique identifier of the stock.
+                        - zero_{column}_count: The count of records where the 
+                        specified column has a zero value.
+                        - total_count: The total number of records for the stock_id.
+                        - is_actively_trading: A boolean indicating if the 
+                        stock is currently actively trading.
+                        - percentage: The percentage of zero-value records for 
+                        the specified column relative to the total count of records.
+
+        Raises:
+            RuntimeError: If an error occurs during query execution, such as a 
+            database connection issue or a problem with the query syntax. The 
+            transaction is rolled back and the session is closed before raising 
+            the error.
+
+        """
+        min_date = (datetime.now() - timedelta(365)).strftime('%Y-%m-%d')
+
+        try:
+            query = text(f"""
+            SELECT 
+                dc.stock_id, 
+                SUM(CASE WHEN dc.{column} = 0 THEN 1 ELSE 0 END) AS zero_{column}_count,
+                COUNT(dc.id) AS total_count,
+                cp.is_actively_trading,
+                (SUM(CASE WHEN dc.{column} = 0 THEN 1 ELSE 0 END) * 1.0 / COUNT(dc.id)) * 100 AS percentage
+            FROM 
+                dailychart dc
+            LEFT JOIN 
+                companyprofile cp ON dc.stock_id = cp.stock_id
+            WHERE 
+                dc.date > '{min_date}'
+            GROUP BY 
+                dc.stock_id, 
+                cp.is_actively_trading
+            HAVING 
+                SUM(CASE WHEN dc.{column} = 0 THEN 1 ELSE 0 END) > 0
+            ORDER BY 
+                percentage DESC;
+            """)
+
+            data = self.db_session.execute(query).fetchall()
+
+            return pd.DataFrame(data)
+
+        except SQLAlchemyError as e:
+            # Rollback the transaction in case of an error
+            self.db_session.rollback()
+            raise RuntimeError(f"An error occurred: {e}") from e
+
+        finally:
+            # Close session in all cases (on success or failure)
+            self.db_session.close()

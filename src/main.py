@@ -36,7 +36,7 @@ def main():
     db_session = Session()
 
     stock_query = StockQuery(db_session)
-    df = stock_query.get_dailychart_missing_update()
+    df = stock_query.get_dailychart_missing_value_by_column('volume')
     print(df)
 
     # stock_reporting = StockReporting(db_session)
