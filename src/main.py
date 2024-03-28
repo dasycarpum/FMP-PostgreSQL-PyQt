@@ -9,10 +9,7 @@ Created on 2024-03-09
 
 """
 
-from src.models.base import Session
-from src.models.fmp.stock import StockSymbol, CompanyProfile, STOXXEurope600 # pylint: disable=unused-import
-from src.dal.fmp.database_query import StockQuery
-# from src.business_logic.fmp.database_reporting import StockReporting
+from src.services.date import create_business_time_series
 
 
 def main():
@@ -33,14 +30,8 @@ def main():
         No exception is raised by this function.
     """
 
-    db_session = Session()
 
-    stock_query = StockQuery(db_session)
-    df = stock_query.get_dailychart_missing_value_by_column('volume')
-    print(df)
-
-    # stock_reporting = StockReporting(db_session)
-    # stock_reporting.report_sxxp_table()
+    create_business_time_series()
 
 
 if __name__ == "__main__":

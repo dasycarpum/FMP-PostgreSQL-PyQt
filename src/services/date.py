@@ -5,11 +5,17 @@ Created on 2024-03-11
 
 @author: Roland VANDE MAELE
 
-@abstract: this function attempts to parse a string into a date.
+@abstract: this file is intended for functions processing dates
 
 """
 
-from datetime import datetime
+import datetime
+import holidays
+from sqlalchemy import Table, Column, Date, MetaData
+from sqlalchemy.exc import SQLAlchemyError, IntegrityError, OperationalError
+from src.models.base import engine
+from src.services.sql import convert_stock_table_to_hypertable
+
 
 def parse_date(date_str):
     """
@@ -43,7 +49,79 @@ def parse_date(date_str):
     """
     for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%Y%m%d"):
         try:
-            return datetime.strptime(date_str, fmt).date()
+            return datetime.datetime.strptime(date_str, fmt).date()
         except ValueError:
             continue
     return None
+
+def create_business_time_series():
+    """
+    Generates a time series of business dates excluding weekends and holidays 
+    specific to France, inserts them into a database, and converts the table 
+    into a TimescaleDB hypertable.
+
+    This function defines a date range from January 1, 1985 to December 31, 
+    2030. It generates a list of business dates within this range, excluding 
+    weekends and French financial holidays. These dates are then inserted into 
+    a specified table in the database. After insertion, the table is converted 
+    into a TimescaleDB hypertable for efficient time-series data handling.
+
+    Args:
+        None
+
+    Returns:
+        None
+
+    Raises:
+        Exception: If any database operation fails, the transaction is rolled back.
+
+    """
+    try:
+        table = 'businessdate'
+
+        # Define the date range
+        start_date = datetime.date(1985, 1, 1)
+        end_date = datetime.date(2030, 12, 31)
+
+        # Get holidays in the range
+        fr_holidays = holidays.financial_holidays('FR')
+
+        # Generate business dates, excluding weekends and holidays
+        business_dates = [
+            current_date
+            for current_date in (start_date + datetime.timedelta(n) for n in range(
+                (end_date - start_date).days + 1))
+            if current_date.weekday() < 5 and current_date not in fr_holidays
+        ]
+
+        # Define metadata object
+        metadata = MetaData()
+
+        # Define the table
+        business_dates_table = Table(table, metadata,
+                                Column('date', Date, primary_key=True),)
+
+        # Create the table in the database
+        metadata.create_all(engine)
+
+        # Convert table into TimescaleDB hypertable
+        convert_stock_table_to_hypertable(table)
+
+        # Insert business dates into the database
+        with engine.connect() as connection:
+            # Use transaction to rollback in case of any error
+            with connection.begin():
+                for business_date in business_dates:
+                    connection.execute(
+                        business_dates_table.insert().values(date=business_date)
+                    )
+
+        print("Business dates inserted successfully.")
+
+    except IntegrityError as e:
+        print(f"Integrity error occurred: {e}")
+    except OperationalError as e:
+        print(f"Operational error with the database: {e}")
+    except SQLAlchemyError as e:
+        # Catching other SQLAlchemy-related errors
+        print(f"Database error occurred: {e}")
