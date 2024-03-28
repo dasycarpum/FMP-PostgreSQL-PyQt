@@ -11,6 +11,7 @@ part of the data access logic (DAL).
 
 """
 
+from datetime import datetime, timedelta
 import pandas as pd
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
@@ -388,6 +389,59 @@ class StockQuery:
             SELECT * FROM sxxp
             LEFT JOIN companyprofile 
                 ON sxxp.stock_id = companyprofile.stock_id;
+            """)
+
+            data = self.db_session.execute(query).fetchall()
+
+            return pd.DataFrame(data)
+
+        except SQLAlchemyError as e:
+            # Rollback the transaction in case of an error
+            self.db_session.rollback()
+            raise RuntimeError(f"An error occurred: {e}") from e
+
+        finally:
+            # Close session in all cases (on success or failure)
+            self.db_session.close()
+
+    def get_dailychart_missing_update(self) -> pd.DataFrame:
+        """
+        Retrieves a list of stock_ids from the `dailychart` table that have not 
+        been updated to the latest date, alongside their most recent update 
+        date and active trading status from the `companyprofile` table.
+
+        Args:
+            None
+
+        Returns:
+            pd.DataFrame: A DataFrame containing three columns: `stock_id`, 
+            `max_date`, and `is_actively_trading`.
+
+        Raises:
+            RuntimeError: If an error occurs during the execution of the query, 
+            including issues related to the database connection or the query 
+            execution itself. The error is logged, and a runtime error is 
+            raised with the original error message.
+
+        """
+        min_date = (datetime.now() - timedelta(365)).strftime('%Y-%m-%d')
+
+        try:
+            query = text(f"""
+            WITH MaxDate AS (
+                SELECT MAX(date) AS overall_max_date
+                FROM dailychart
+                WHERE date > '{min_date}'
+            ), LatestStockDates AS (
+                SELECT stock_id, MAX(date) AS max_date
+                FROM dailychart
+                WHERE date > '{min_date}'
+                GROUP BY stock_id
+            )
+            SELECT lsd.stock_id, lsd.max_date, cp.is_actively_trading
+            FROM LatestStockDates lsd
+            LEFT JOIN companyprofile cp ON lsd.stock_id = cp.stock_id
+            WHERE lsd.max_date < (SELECT overall_max_date FROM MaxDate);
             """)
 
             data = self.db_session.execute(query).fetchall()
