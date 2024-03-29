@@ -457,7 +457,8 @@ class StockQuery:
             # Close session in all cases (on success or failure)
             self.db_session.close()
 
-    def get_table_missing_value_by_column(self, table: str, column: str, years: int = 1) -> pd.DataFrame:
+    def get_table_missing_value_by_column(self, table: str, column: str,
+        years: int = 1) -> pd.DataFrame:
         """
         Retrieves a list of action identifiers ('stock_id') from a stock table 
         which has at least one null value in the specified column.
@@ -490,6 +491,7 @@ class StockQuery:
 
         """
         min_date = (datetime.now() - timedelta(years * 365)).strftime('%Y-%m-%d')
+        max_date = datetime.now().strftime('%Y-%m-%d')
 
         try:
             query = text(f"""
@@ -504,7 +506,7 @@ class StockQuery:
             LEFT JOIN 
                 companyprofile cp ON ta.stock_id = cp.stock_id
             WHERE 
-                ta.date > '{min_date}'
+                ta.date > '{min_date}' AND ta.date <= '{max_date}'
             GROUP BY 
                 ta.stock_id, 
                 cp.is_actively_trading
