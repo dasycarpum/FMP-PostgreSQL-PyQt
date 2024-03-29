@@ -245,7 +245,7 @@ class StockReporting:
                        'unadjusted_volume', 'vwap']
 
             for column in columns:
-                df = stock_query.get_dailychart_missing_value_by_column(column)
+                df = stock_query.get_table_missing_value_by_column('dailychart', column)
                 df['column_name'] = column
                 df_zero = pd.concat([df_zero, df], ignore_index=True)
 

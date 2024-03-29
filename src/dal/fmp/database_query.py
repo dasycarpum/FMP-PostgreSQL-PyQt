@@ -457,18 +457,19 @@ class StockQuery:
             # Close session in all cases (on success or failure)
             self.db_session.close()
 
-    def get_dailychart_missing_value_by_column(self, column: str) -> pd.DataFrame:
+    def get_table_missing_value_by_column(self, table: str, column: str, years: int = 1) -> pd.DataFrame:
         """
-        Retrieves a list of action identifiers from the `dailychart` table 
-        which has at least one null value in the specified column ('volume', 
-        'close', ...).
+        Retrieves a list of action identifiers ('stock_id') from a stock table 
+        which has at least one null value in the specified column.
 
         The function dynamically incorporates the specified column name into 
         the SQL query to perform the aggregation and calculations. It filters 
         records based on a minimum date set to one year from the current date.
 
         Args:
+            table (str) : The name of the table.
             column (str): The name of the column to check for zero values.
+            years (int) : The number of years back compared to today.
 
         Returns:
             pd.DataFrame: A DataFrame with each row containing:
@@ -488,27 +489,27 @@ class StockQuery:
             the error.
 
         """
-        min_date = (datetime.now() - timedelta(365)).strftime('%Y-%m-%d')
+        min_date = (datetime.now() - timedelta(years * 365)).strftime('%Y-%m-%d')
 
         try:
             query = text(f"""
             SELECT 
-                dc.stock_id, 
-                SUM(CASE WHEN dc.{column} = 0 THEN 1 ELSE 0 END) AS zero_column_count,
-                COUNT(dc.id) AS total_count,
+                ta.stock_id, 
+                SUM(CASE WHEN ta.{column} = 0 THEN 1 ELSE 0 END) AS zero_column_count,
+                COUNT(ta.id) AS total_count,
                 cp.is_actively_trading,
-                (SUM(CASE WHEN dc.{column} = 0 THEN 1 ELSE 0 END) * 1.0 / COUNT(dc.id)) * 100 AS percentage
+                (SUM(CASE WHEN ta.{column} = 0 THEN 1 ELSE 0 END) * 1.0 / COUNT(ta.id)) * 100 AS percentage
             FROM 
-                dailychart dc
+                {table} ta
             LEFT JOIN 
-                companyprofile cp ON dc.stock_id = cp.stock_id
+                companyprofile cp ON ta.stock_id = cp.stock_id
             WHERE 
-                dc.date > '{min_date}'
+                ta.date > '{min_date}'
             GROUP BY 
-                dc.stock_id, 
+                ta.stock_id, 
                 cp.is_actively_trading
             HAVING 
-                SUM(CASE WHEN dc.{column} = 0 THEN 1 ELSE 0 END) > 0
+                SUM(CASE WHEN ta.{column} = 0 THEN 1 ELSE 0 END) > 0
             ORDER BY 
                 percentage DESC;
             """)

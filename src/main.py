@@ -10,8 +10,8 @@ Created on 2024-03-09
 """
 
 from src.models.base import Session
-# from src.dal.fmp.database_query import StockQuery
-from src.business_logic.fmp.database_reporting import StockReporting
+from src.dal.fmp.database_query import StockQuery
+# from src.business_logic.fmp.database_reporting import StockReporting
 
 def main():
     """
@@ -34,12 +34,12 @@ def main():
 
     db_session = Session()
 
-    # stock_query = StockQuery(db_session)
-    # df = stock_query.get_dailychart_finding_gap_by_stock(21395)
-    # print(df)
+    stock_query = StockQuery(db_session)
+    df = stock_query.get_table_missing_value_by_column('dividend', 'dividend', 2)
+    print(df)
 
-    stock_reporting = StockReporting(db_session)
-    stock_reporting.report_dailychart_table()
+    # stock_reporting = StockReporting(db_session)
+    # stock_reporting.report_dailychart_table()
 
 
 if __name__ == "__main__":
