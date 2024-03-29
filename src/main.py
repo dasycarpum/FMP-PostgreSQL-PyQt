@@ -9,8 +9,8 @@ Created on 2024-03-09
 
 """
 
-from src.services.date import create_business_time_series
-
+from src.models.base import Session
+from src.dal.fmp.database_query import StockQuery
 
 def main():
     """
@@ -31,7 +31,11 @@ def main():
     """
 
 
-    create_business_time_series()
+    db_session = Session()
+
+    stock_query = StockQuery(db_session)
+    df = stock_query.get_dailychart_finding_gap_by_stock(21395)
+    print(df)
 
 
 if __name__ == "__main__":

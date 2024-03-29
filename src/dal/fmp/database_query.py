@@ -525,3 +525,60 @@ class StockQuery:
         finally:
             # Close session in all cases (on success or failure)
             self.db_session.close()
+
+    def get_dailychart_finding_gap_by_stock(self, stock_id: int) -> pd.DataFrame:
+        """
+        Retrieves dates within the last year for which there are no daily chart 
+        records for the specified stock.
+
+        This function queries a database for dates from the last 365 days up to 
+        the most recent date in the `dailychart` table for a given stock ID. It 
+        identifies any dates for which there is no corresponding daily chart 
+        record for the stock, indicating a "gap" in the data.
+
+        Args:
+            stock_id (int): The unique identifier for the stock of interest.
+
+        Returns:
+            pd.DataFrame: A DataFrame containing the dates (as `missing_date`) 
+            for which there are no daily chart records for the specified stock.
+
+        Raises:
+            RuntimeError: An error occurred during the database query or 
+            transaction, which includes the original error message.
+
+        """
+        min_date = (datetime.now() - timedelta(365)).strftime('%Y-%m-%d')
+
+        try:
+            query = text(f"""
+            WITH expected_dates AS (
+                SELECT b.date
+                FROM businessdate b
+                WHERE b.date >= '{min_date}'
+                AND b.date <= (SELECT MAX(d.date) FROM dailychart d WHERE d.stock_id = {stock_id})
+            ),
+            actual_dates AS (
+                SELECT d.date
+                FROM dailychart d
+                WHERE d.stock_id = {stock_id}
+            )
+            SELECT e.date AS missing_date
+            FROM expected_dates e
+            LEFT JOIN actual_dates a ON e.date = a.date
+            WHERE a.date IS NULL
+            ORDER BY e.date;
+            """)
+
+            data = self.db_session.execute(query).fetchall()
+
+            return pd.DataFrame(data)
+
+        except SQLAlchemyError as e:
+            # Rollback the transaction in case of an error
+            self.db_session.rollback()
+            raise RuntimeError(f"An error occurred: {e}") from e
+
+        finally:
+            # Close session in all cases (on success or failure)
+            self.db_session.close()
