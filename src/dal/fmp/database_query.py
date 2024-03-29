@@ -494,7 +494,7 @@ class StockQuery:
             query = text(f"""
             SELECT 
                 dc.stock_id, 
-                SUM(CASE WHEN dc.{column} = 0 THEN 1 ELSE 0 END) AS zero_{column}_count,
+                SUM(CASE WHEN dc.{column} = 0 THEN 1 ELSE 0 END) AS zero_column_count,
                 COUNT(dc.id) AS total_count,
                 cp.is_actively_trading,
                 (SUM(CASE WHEN dc.{column} = 0 THEN 1 ELSE 0 END) * 1.0 / COUNT(dc.id)) * 100 AS percentage

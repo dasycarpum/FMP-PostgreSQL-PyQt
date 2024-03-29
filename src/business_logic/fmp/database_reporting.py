@@ -150,6 +150,16 @@ class StockReporting:
         - A table showing counts of boolean values like is_etf, 
         is_actively_trading, is_adr, and is_fund.
 
+        Attributes:
+            Uses an instance attribute `db_session` for database queries, which 
+            must be initialized with a valid database session before calling this method.
+
+        Args:
+            None
+
+        Returns:
+            None
+
         Raises:
             RuntimeError: If there is a database-related error during the query 
             execution, encapsulating the original SQLAlchemyError. Also raised 
@@ -195,3 +205,69 @@ class StockReporting:
         except Exception as e:
             raise RuntimeError(
                 f"Failed to report sxxp table due to an unexpected error: {e}") from e
+
+    def report_dailychart_table(self) -> None:
+        """
+        Reports on the status of daily chart data in the database for various stocks.
+
+        This function performs a series of data retrieval and processing tasks 
+        to generate reports on the completeness and quality of daily chart 
+        data. It checks for stocks that haven't been updated to the latest 
+        date, identifies stocks with missing values in critical fields, and 
+        detects any gaps in the daily chart records over the last year for a 
+        specified stock.
+
+        Attributes:
+            Uses an instance attribute `db_session` for database queries, which 
+            must be initialized with a valid database session before calling this method.
+
+        Args:
+            None
+
+        Returns:
+            None
+        
+        Raises:
+            RuntimeError: If any database error occurs, wrapping the original
+            SQLAlchemyError, or for any unexpected error during the reporting process.
+
+        """
+        try:
+            stock_query = StockQuery(self.db_session)
+
+            # Retrieves a list of stock_ids that have not been updated to the latest date
+            df_update = stock_query.get_dailychart_missing_update()
+            print(df_update)
+
+            # Retrieves a list of stock_ids which has at least one null value in the columns
+            df_zero = pd.DataFrame()
+            columns = ['open', 'high', 'low', 'close', 'adj_close', 'volume',
+                       'unadjusted_volume', 'vwap']
+
+            for column in columns:
+                df = stock_query.get_dailychart_missing_value_by_column(column)
+                df['column_name'] = column
+                df_zero = pd.concat([df_zero, df], ignore_index=True)
+
+            print(df_zero)
+
+            df_zero_by_stock = df_zero[df_zero['is_actively_trading']
+            ].groupby('stock_id')['zero_column_count'].sum().reset_index()
+            print(df_zero_by_stock.sort_values('zero_column_count'))
+            plot.plot_distributions(df_zero_by_stock, ['zero_column_count'])
+
+            df_zero_by_column = df_zero[df_zero['is_actively_trading']
+            ].groupby('column_name')['zero_column_count'].sum().reset_index()
+            print(df_zero_by_column.sort_values('zero_column_count'))
+
+            # Retrieves dates within the last year for which there are no daily
+            # chart records for the specified stock
+            df_gap = stock_query.get_dailychart_finding_gap_by_stock(21412)
+            print(df_gap)
+
+        except SQLAlchemyError as e:
+            raise RuntimeError(
+                f"Failed to report dailychart table due to database error: {e}") from e
+        except Exception as e:
+            raise RuntimeError(
+                f"Failed to report dailychart table due to an unexpected error: {e}") from e
