@@ -585,3 +585,45 @@ class StockQuery:
         finally:
             # Close session in all cases (on success or failure)
             self.db_session.close()
+
+    def get_keymetrics_columns(self) -> list:
+        """
+        Retrieves the column names from the 'keymetrics' table in the database.
+
+        This method executes a SQL query to fetch all column names from the 
+        'keymetrics' table within the connected database. It utilizes the 
+        database session associated with the instance to perform the query.
+
+        Args:
+            None
+
+        Returns:
+            list: A list of strings where each string represents a column name in the
+                'keymetrics' table.
+
+        Raises:
+            RuntimeError: An error occurs during the execution of the query or 
+            fetching of results. The original error message from SQLAlchemy is 
+            included in the raised RuntimeError exception.
+        """
+        try:
+            query = text("""
+            SELECT COLUMN_NAME 
+            FROM information_schema.columns 
+            WHERE table_name = 'keymetrics'
+            """)
+
+            data = self.db_session.execute(query).fetchall()
+
+            column_list = [column[0] for column in data]
+
+            return column_list
+
+        except SQLAlchemyError as e:
+            # Rollback the transaction in case of an error
+            self.db_session.rollback()
+            raise RuntimeError(f"An error occurred: {e}") from e
+
+        finally:
+            # Close session in all cases (on success or failure)
+            self.db_session.close()

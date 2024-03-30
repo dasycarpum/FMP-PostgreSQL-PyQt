@@ -35,11 +35,11 @@ def main():
     db_session = Session()
 
     # stock_query = StockQuery(db_session)
-    # df = stock_query.get_table_missing_value_by_column('dividend', 'dividend', 2)
-    # print(df)
+    # column_list = stock_query.get_keymetrics_columns()
+    # print(column_list[5:])
 
     stock_reporting = StockReporting(db_session)
-    stock_reporting.report_dividend_table()
+    stock_reporting.report_keymetrics_table()
 
 
 if __name__ == "__main__":

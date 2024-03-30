@@ -319,7 +319,62 @@ class StockReporting:
 
         except SQLAlchemyError as e:
             raise RuntimeError(
-                f"Failed to report dailychart table due to database error: {e}") from e
+                f"Failed to report dividend table due to database error: {e}") from e
         except Exception as e:
             raise RuntimeError(
-                f"Failed to report dailychart table due to an unexpected error: {e}") from e
+                f"Failed to report dividend table due to an unexpected error: {e}") from e
+
+    def report_keymetrics_table(self) -> None:
+        """
+        Reports on the status of key metrics data in the database for various stocks.
+
+        This function performs a series of data retrieval and processing tasks 
+        to generate reports on the completeness and quality of key metrics 
+        data. It identifies stocks with missing values in critical fields
+
+        Attributes:
+            Uses an instance attribute `db_session` for database queries, which 
+            must be initialized with a valid database session before calling this method.
+
+        Args:
+            None
+
+        Returns:
+            None
+        
+        Raises:
+            RuntimeError: If any database error occurs, wrapping the original
+            SQLAlchemyError, or for any unexpected error during the reporting process.
+
+        """
+        try:
+            stock_query = StockQuery(self.db_session)
+
+            # Retrieves a list of stock_ids which has at least one null value in the columns
+            df_zero = pd.DataFrame()
+
+            columns = stock_query.get_keymetrics_columns()
+
+            for column in columns[5:]:
+                df = stock_query.get_table_missing_value_by_column('keymetrics', column)
+                df['column_name'] = column
+                df_zero = pd.concat([df_zero, df], ignore_index=True)
+            print(df_zero.sort_values('is_actively_trading'))
+
+            df_zero = df_zero.dropna(subset=['is_actively_trading'])
+
+            df_zero_by_stock = df_zero[df_zero['is_actively_trading']
+            ].groupby('stock_id')['zero_column_count'].sum().reset_index()
+            print(df_zero_by_stock.sort_values('zero_column_count'))
+            plot.plot_distributions(df_zero_by_stock, ['zero_column_count'])
+
+            df_zero_by_column = df_zero[df_zero['is_actively_trading']
+            ].groupby('column_name')['zero_column_count'].sum().reset_index()
+            print(df_zero_by_column.sort_values('zero_column_count'))
+
+        except SQLAlchemyError as e:
+            raise RuntimeError(
+                f"Failed to report keymetrics table due to database error: {e}") from e
+        except Exception as e:
+            raise RuntimeError(
+                f"Failed to report keymetrics table due to an unexpected error: {e}") from e
