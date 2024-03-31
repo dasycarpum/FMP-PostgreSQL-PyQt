@@ -317,6 +317,10 @@ class StockReporting:
             ].groupby('column_name')['zero_column_count'].sum().reset_index()
             print(df_zero_by_column.sort_values('zero_column_count'))
 
+            # Retrieves the most recent date by stock_id
+            df_max_date = stock_query.get_table_date('dividend')
+            plot.plot_distributions(df_max_date, ['max_date'])
+
         except SQLAlchemyError as e:
             raise RuntimeError(
                 f"Failed to report dividend table due to database error: {e}") from e
@@ -371,6 +375,10 @@ class StockReporting:
             df_zero_by_column = df_zero[df_zero['is_actively_trading']
             ].groupby('column_name')['zero_column_count'].sum().reset_index()
             print(df_zero_by_column.sort_values('zero_column_count'))
+
+            # Retrieves the most recent date by stock_id
+            df_max_date = stock_query.get_table_date('keymetrics')
+            plot.plot_distributions(df_max_date, ['max_date'])
 
         except SQLAlchemyError as e:
             raise RuntimeError(
