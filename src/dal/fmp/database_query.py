@@ -13,7 +13,7 @@ part of the data access logic (DAL).
 
 from datetime import datetime, timedelta
 import pandas as pd
-from sqlalchemy import text
+from sqlalchemy import text, inspect
 from sqlalchemy.exc import SQLAlchemyError
 from src.models.base import Session
 
@@ -618,6 +618,61 @@ class StockQuery:
             column_list = [column[0] for column in data]
 
             return column_list
+
+        except SQLAlchemyError as e:
+            # Rollback the transaction in case of an error
+            self.db_session.rollback()
+            raise RuntimeError(f"An error occurred: {e}") from e
+
+        finally:
+            # Close session in all cases (on success or failure)
+            self.db_session.close()
+
+    def get_table_date(self, table: str) -> pd.DataFrame:
+        """
+        Retrieves the most recent date by stock ID from a specified database 
+        table and returns them as a pandas DataFrame with the dates converted 
+        to datetime objects.
+
+        This function executes a SQL query to select all last date entries from 
+        the specified table. It then fetches the results, converts them into a 
+        pandas DataFrame, and ensures the 'max_date' column is in datetime format. 
+
+        Args:
+            table (str): The name of the database table from which to retrieve the dates.
+
+        Returns:
+            pd.DataFrame: A pandas DataFrame containing the dates from the 
+            specified table, with the dates converted to datetime objects.
+
+        Raises:
+            RuntimeError: If an error occurs during the execution of the query 
+            or the handling of the database session. The original error from 
+            SQLAlchemy is included in the RuntimeError exception message.
+
+        """
+        try:
+            # Inspect table columns
+            inspector = inspect(self.db_session.bind)
+            if 'date' not in [column['name'] for column in inspector.get_columns(table)]:
+                raise ValueError(f"The specified table '{table}' does not contain a 'date' column.")
+
+            # Proceed with the original query if the 'date' column exists
+            query = text(f"""
+            SELECT ta.stock_id, MAX(ta.date) AS max_date
+            FROM {table} ta
+            INNER JOIN 
+                companyprofile cp ON ta.stock_id = cp.stock_id
+            WHERE cp.is_actively_trading is True
+            GROUP BY ta.stock_id
+            ORDER BY max_date DESC
+            """)
+            data = self.db_session.execute(query).fetchall()
+            
+            df = pd.DataFrame(data)
+            df['max_date'] = pd.to_datetime(df['max_date'])
+            
+            return df
 
         except SQLAlchemyError as e:
             # Rollback the transaction in case of an error
