@@ -697,7 +697,9 @@ class StockQuery:
             metrics are to be measured.
 
         Returns:
-            tuple: A tuple containing two elements:
+            tuple: A tuple containing four elements:
+                - the date and time of the query (datetime)
+                - the name of the table (str)
                 - execution_time (float): The time taken to execute the SELECT 
                 query, rounded to 4 decimal places.
                 - disk_space (str): The disk space used by the table, formatted 
@@ -736,7 +738,7 @@ class StockQuery:
 
             result_ds = self.db_session.execute(query_ds).fetchone()
 
-            return execution_time, result_ds[0]
+            return datetime.now(), table_name, execution_time, result_ds[0]
 
         except SQLAlchemyError as e:
             # Rollback the transaction in case of an error

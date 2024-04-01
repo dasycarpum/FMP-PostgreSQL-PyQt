@@ -386,3 +386,41 @@ class StockReporting:
         except Exception as e:
             raise RuntimeError(
                 f"Failed to report keymetrics table due to an unexpected error: {e}") from e
+
+    def report_on_table_performance(self) -> None:
+        """
+        Generates a performance report for each table in the database by 
+        iterating over all tables and printing performance metrics.
+
+        The performance metrics for each table include execution time of a 
+        SELECT query and the disk space used by the table, both printed to the 
+        standard output.
+
+        Args:
+            None
+
+        Returns:
+            None
+
+        Raises:
+            RuntimeError: If any SQLAlchemy database operation fails, a 
+            RuntimeError is raised with details of the database-related error. 
+            Additionally, if any other unexpected error occurs, it is also 
+            caught and raised as a RuntimeError with an appropriate error 
+            message.
+
+        """
+        try:
+            stock_query = StockQuery(self.db_session)
+            table_list = stock_query.get_list_of_tables()
+
+            for table in table_list:
+                result = stock_query.get_table_performance(table)
+                print (result)
+
+        except SQLAlchemyError as e:
+            raise RuntimeError(
+                f"Failed to report on table performance due to database error: {e}") from e
+        except Exception as e:
+            raise RuntimeError(
+                f"Failed to report on table performance due to an unexpected error: {e}") from e

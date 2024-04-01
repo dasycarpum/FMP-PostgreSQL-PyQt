@@ -10,8 +10,8 @@ Created on 2024-03-09
 """
 
 from src.models.base import Session
-from src.dal.fmp.database_query import StockQuery
-# from src.business_logic.fmp.database_reporting import StockReporting
+# from src.dal.fmp.database_query import StockQuery
+from src.business_logic.fmp.database_reporting import StockReporting
 
 def main():
     """
@@ -34,12 +34,12 @@ def main():
 
     db_session = Session()
 
-    stock_query = StockQuery(db_session)
-    result = stock_query.get_list_of_tables()
-    print(result)
+    # stock_query = StockQuery(db_session)
+    # result = stock_query.get_list_of_tables()
+    # print(result)
 
-    # stock_reporting = StockReporting(db_session)
-    # stock_reporting.report_keymetrics_table()
+    stock_reporting = StockReporting(db_session)
+    stock_reporting.report_on_table_performance()
 
 
 if __name__ == "__main__":
