@@ -35,7 +35,7 @@ def main():
     db_session = Session()
 
     stock_query = StockQuery(db_session)
-    result = stock_query.get_table_performance('keymetrics')
+    result = stock_query.get_list_of_tables()
     print(result)
 
     # stock_reporting = StockReporting(db_session)

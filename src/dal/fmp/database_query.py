@@ -746,3 +746,45 @@ class StockQuery:
         finally:
             # Close session in all cases (on success or failure)
             self.db_session.close()
+
+    def get_list_of_tables(self) -> list:
+        """
+        Retrieves a list of table names from the 'public' schema of the 
+        database. This method executes a query to fetch all table names 
+        available in the 'public' schema and returns them as a list.
+
+        Args:
+            None
+
+        Returns:
+            list: A list of strings, where each string is the name of a table 
+            within the 'public' schema of the connected database.
+
+        Raises:
+            RuntimeError: If any issues occur during the database operation, 
+            including connection issues or SQL execution problems. The error 
+            raised will contain a message from the underlying SQLAlchemyError 
+            that caused the failure.
+
+        """
+        try:
+            query = text("""
+            SELECT tablename 
+            FROM pg_tables 
+            WHERE schemaname = 'public';
+            """)
+
+            data = self.db_session.execute(query).fetchall()
+
+            table_list = [table[0] for table in data]
+
+            return table_list
+
+        except SQLAlchemyError as e:
+            # Rollback the transaction in case of an error
+            self.db_session.rollback()
+            raise RuntimeError(f"An error occurred: {e}") from e
+
+        finally:
+            # Close session in all cases (on success or failure)
+            self.db_session.close()
