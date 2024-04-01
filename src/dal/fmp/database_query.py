@@ -11,6 +11,7 @@ part of the data access logic (DAL).
 
 """
 
+import time
 from datetime import datetime, timedelta
 import pandas as pd
 from sqlalchemy import text, inspect
@@ -668,11 +669,74 @@ class StockQuery:
             ORDER BY max_date DESC
             """)
             data = self.db_session.execute(query).fetchall()
-            
+
             df = pd.DataFrame(data)
             df['max_date'] = pd.to_datetime(df['max_date'])
-            
+
             return df
+
+        except SQLAlchemyError as e:
+            # Rollback the transaction in case of an error
+            self.db_session.rollback()
+            raise RuntimeError(f"An error occurred: {e}") from e
+
+        finally:
+            # Close session in all cases (on success or failure)
+            self.db_session.close()
+
+    def get_table_performance(self, table_name: str):
+        """
+        Measures the performance of a specified database table in terms of 
+        query response time and disk space usage. It first checks if the given 
+        table is a hypertable in a TimescaleDB environment and accordingly 
+        measures the disk space used. It also measures the time taken to 
+        execute a simple SELECT query on the table.
+
+        Args:
+            table_name (str): The name of the table for which performance 
+            metrics are to be measured.
+
+        Returns:
+            tuple: A tuple containing two elements:
+                - execution_time (float): The time taken to execute the SELECT 
+                query, rounded to 4 decimal places.
+                - disk_space (str): The disk space used by the table, formatted 
+                as a human-readable string (e.g., "10 MB").
+
+        Raises:
+            RuntimeError: If any database operation fails, it raises a 
+            RuntimeError with information about the specific SQLAlchemyError.
+
+        """
+        try:
+            # Measuring query response time
+            start_time = time.time()
+
+            query_rt = text(f"""
+            SELECT * FROM {table_name}
+            """)
+            result_rt = self.db_session.execute(query_rt) # pylint: disable=unused-variable
+
+            execution_time = round(time.time() - start_time, 4)
+
+            # Check if the table is already a hypertable
+            hypertable_check = text(
+                "SELECT * FROM _timescaledb_catalog.hypertable WHERE table_name = :table_name")
+            if self.db_session.execute(
+                hypertable_check, {'table_name': table_name}).fetchone() is not None:
+                # Measuring the disk space used by a TimescaleDB table
+                query_ds = text(f"""
+                SELECT pg_size_pretty(hypertable_size('public.{table_name}'));
+                """)
+            else :
+                # Measuring the disk space used by a normal table
+                query_ds = text(f"""
+                SELECT pg_size_pretty(pg_total_relation_size('public.{table_name}'))
+                """)
+
+            result_ds = self.db_session.execute(query_ds).fetchone()
+
+            return execution_time, result_ds[0]
 
         except SQLAlchemyError as e:
             # Rollback the transaction in case of an error
