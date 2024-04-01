@@ -9,9 +9,9 @@ Created on 2024-03-09
 
 """
 
-from src.models.base import Session
-# from src.dal.fmp.database_query import StockQuery
-from src.business_logic.fmp.database_reporting import StockReporting
+import sys
+from PyQt6.QtWidgets import QApplication
+from src.ui.main_window import MainWindow
 
 def main():
     """
@@ -19,27 +19,22 @@ def main():
 
     This function serves as the entry point for the script. It takes no 
     arguments, returns nothing. It is intended to be called when the script is 
-    executed directly.
+    executed directly. This function creates the QApplication, initializes the 
+    main window, and starts the event loop.
 
     Args:
         None.
 
     Returns:
         None.
-    
-    Raises:
-        No exception is raised by this function.
     """
 
+    app = QApplication(sys.argv)  # Create an instance of QApplication
 
-    db_session = Session()
+    main_window = MainWindow()  # Create an instance of the main window
+    main_window.show()  # Show the main window
 
-    # stock_query = StockQuery(db_session)
-    # result = stock_query.get_list_of_tables()
-    # print(result)
-
-    stock_reporting = StockReporting(db_session)
-    stock_reporting.report_on_table_performance()
+    sys.exit(app.exec())  # Start the event loop and exit when it's finished
 
 
 if __name__ == "__main__":

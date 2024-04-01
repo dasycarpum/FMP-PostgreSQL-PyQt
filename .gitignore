@@ -163,3 +163,5 @@ cython_debug/
 dump/
 figure/
 raw_data/
+*.ui
+.pylintrc
