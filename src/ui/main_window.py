@@ -9,8 +9,12 @@ Created on 2024-04-01
 
 """
 
-from PyQt6.QtWidgets import QMainWindow
+import os
+from PyQt6.QtWidgets import QMainWindow, QMenu
+from PyQt6.QtGui import QDesktopServices
+from PyQt6.QtCore import QUrl
 import src.ui.main_window_UI as window
+
 
 class MainWindow(QMainWindow, window.Ui_MainWindow):
     """Main application window for the PyQt6 application.
@@ -45,3 +49,122 @@ class MainWindow(QMainWindow, window.Ui_MainWindow):
         """
         super(MainWindow, self).__init__(parent)
         self.setupUi(self)
+
+        self.setup_signal_connections()
+
+    def setup_signal_connections(self):
+        """Set up the signal connections for the UI elements."""
+        self.action_postgresql_install.triggered.connect(self.set_pdf_to_open)
+        self.action_postgresql_update.triggered.connect(self.set_pdf_to_open)
+
+    def set_pdf_to_open(self):
+        """
+        Opens a specific PDF file based on the UI action triggered by the user.
+
+        This method determines the PDF file to open based on the context of 
+        the action triggered by the user. It identifies the action and its 
+        associated objects to derive the filename of the PDF document. The 
+        filename is constructed from the titles of the action and its parent 
+        menu, lowercased and concatenated with an underscore. The method then 
+        attempts to open the PDF document using the `open_pdf` method. If the 
+        operation is unsupported or fails, it prints an appropriate error 
+        message.
+
+        Raises:
+            AttributeError: If no action is associated with the sender or no 
+            associated objects are found.
+            ValueError: If no parent `QMenu` is found among the associated 
+            objects or if the operation to open the PDF is unsupported.
+            Exception: For any other unexpected error that occurs.
+
+        Note:
+            - The method assumes that the PDF documents are stored in a `docs` 
+            directory within the current working directory.
+            - The expected naming convention for the PDF documents is `
+            {menu_text}_{action_text}.pdf`, where `menu_text` and `action_text` 
+            are the lowercased titles of the parent menu and the action, respectively.
+            - Errors are caught and printed to the console, and the function 
+            does not return a value upon encountering an error.
+        """
+        try:
+            action = self.sender()
+            if action is None:
+                raise AttributeError("No action associated with the sender.")
+
+            associated_objects = action.associatedObjects()
+            if associated_objects is None:
+                raise AttributeError("No associated objects found.")
+
+            parent_menu = None
+            for ass_object in associated_objects:
+                if isinstance(ass_object, QMenu):
+                    parent_menu = ass_object
+                    break
+
+            if parent_menu is None:
+                raise ValueError("No parent QMenu found among associated objects.")
+
+            action_text = action.text().lower()
+            menu_text = parent_menu.title().lower()
+
+            if not self.open_pdf(f"docs/{menu_text}_{action_text}.pdf"):
+                raise ValueError(f"Unsupported operation: {menu_text} - {action_text}")
+
+        except AttributeError as e:
+            print(f"Attribute error occurred: {e}")
+        except TypeError as e:
+            print(f"Type error occurred: {e}")
+        except ValueError as e:
+            print(f"Value error occurred: {e}")
+        except Exception as e: # pylint: disable=broad-except
+            print(f"An unexpected error occurred: {e}")
+
+    def open_pdf(self, filepath):
+        """
+        Opens a PDF file with the system's default PDF viewer.
+
+        This method attempts to open a PDF file located at `filepath` using the 
+        system's default PDF viewer. It checks if the `filepath` is a string 
+        and verifies the existence of the file at the given path. If the file 
+        exists, it tries to open it with the default PDF viewer. If any step 
+        fails, an appropriate error message is printed to the console.
+
+        Args:
+            filepath (str): The path to the PDF file that needs to be opened.
+
+        Returns:
+            bool: True if the file was successfully opened with the default PDF 
+            viewer, False otherwise.
+
+        Raises:
+            FileNotFoundError: If the file at `filepath` does not exist.
+            TypeError: If the `filepath` is not a string.
+            OSError: If the file exists but failed to be opened with the default PDF viewer.
+            AttributeError: If an attribute error occurs during the process.
+            Exception: If an unexpected error occurs.
+
+        """
+        try:
+            if not isinstance(filepath, str):
+                raise TypeError("The filepath must be a string.")
+
+            absolute_path = os.path.abspath(filepath)
+            if not os.path.exists(absolute_path):
+                raise FileNotFoundError(f"The file {absolute_path} does not exist.")
+
+            url = QUrl.fromLocalFile(absolute_path)
+            if not QDesktopServices.openUrl(url):
+                raise OSError("Failed to open the PDF file with the default PDF viewer.")
+            else:
+                return True
+
+        except FileNotFoundError as e:
+            print(f"File not found error: {e}")
+        except TypeError as e:
+            print(f"Type error: {e}")
+        except OSError as e:
+            print(f"OS error: {e}")
+        except AttributeError as e:
+            print(f"Attribute error: {e}")
+        except Exception as e: # pylint: disable=broad-except
+            print(f"An unexpected error occurred: {e}")
