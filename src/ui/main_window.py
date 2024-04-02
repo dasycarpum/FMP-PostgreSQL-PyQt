@@ -10,9 +10,11 @@ Created on 2024-04-01
 """
 
 import os
-from PyQt6.QtWidgets import QMainWindow, QMenu
+from PyQt6.QtWidgets import (QMainWindow, QMenu, QInputDialog, QLineEdit,
+    QMessageBox)
 from PyQt6.QtGui import QDesktopServices
 from PyQt6.QtCore import QUrl
+from src.business_logic.fmp.database_process import create_new_database
 import src.ui.main_window_UI as window
 
 
@@ -56,6 +58,8 @@ class MainWindow(QMainWindow, window.Ui_MainWindow):
         """Set up the signal connections for the UI elements."""
         self.action_postgresql_install.triggered.connect(self.set_pdf_to_open)
         self.action_postgresql_update.triggered.connect(self.set_pdf_to_open)
+        self.action_timescaledb_install.triggered.connect(self.set_pdf_to_open)
+        self.action_create_new_database.triggered.connect(self.setup_new_database)
 
     def set_pdf_to_open(self):
         """
@@ -168,3 +172,36 @@ class MainWindow(QMainWindow, window.Ui_MainWindow):
             print(f"Attribute error: {e}")
         except Exception as e: # pylint: disable=broad-except
             print(f"An unexpected error occurred: {e}")
+
+    def setup_new_database(self):
+        """
+        Opens a dialog to prompt the user for a new database name and attempts to create it.
+
+        This function displays a modal input dialog asking the user to enter 
+        the name of a new database they wish to create. If the user provides a 
+        name and clicks OK, the function attempts to create the database with 
+        the given name by calling `create_new_database`. If the database 
+        creation is successful or fails due to a validation or SQLAlchemy error,
+        appropriate feedback should be given to the user (not covered in this snippet).
+
+        Raises:
+            RuntimeError: Propagated from `create_new_database(database_name)` 
+            if database creation fails for any reason, such as invalid name 
+            format or database connection issues.
+
+        """
+        # Open an input dialog to ask the user for the database name
+        database_name, ok_pressed = QInputDialog.getText(
+            self, "Create New Database", "Enter database name:", QLineEdit.EchoMode.Normal, ""
+        )
+
+        # Check if the user pressed OK and provided a non-empty name
+        if ok_pressed and database_name:
+            try:
+                # Attempt to create the new database with the provided name
+                create_new_database(database_name)
+                # Show a success message to the user
+                QMessageBox.information(self, "Success", "Database created successfully!")
+            except RuntimeError as e:
+                # Show an error message to the user
+                QMessageBox.critical(self, "Database Creation Failed", str(e))

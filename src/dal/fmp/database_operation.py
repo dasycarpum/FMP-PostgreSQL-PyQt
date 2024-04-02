@@ -11,16 +11,72 @@ via SQLAlchemy. These functions are part of the data access logic (DAL).
 
 """
 
+import os
 from datetime import datetime
-from sqlalchemy import update, exc
+from dotenv import load_dotenv
+from sqlalchemy import update, exc, create_engine, text
 from sqlalchemy.dialects.postgresql import insert
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import SQLAlchemyError, ProgrammingError
 from src.models.base import Session
 from src.models.fmp.stock import (StockSymbol, CompanyProfile, DailyChartEOD,
     HistoricalDividend, HistoricalKeyMetrics, STOXXEurope600)
 from src.services.date import parse_date
 from src.services.various import (safe_convert_to_int,
     generate_dividend_signature)
+
+load_dotenv()
+
+DATABASE_URL = (
+    f"postgresql+psycopg2://"
+    f"{os.getenv('DB_USER')}:{os.getenv('DB_PASSWORD')}@"
+    f"{os.getenv('DB_HOST')}:{os.getenv('DB_PORT')}/postgres"
+)
+
+def create_database(database_name: str):
+    """
+    Creates a PostgreSQL database using SQLAlchemy and psycopg2.
+
+    This function attempts to create a new database by connecting to the 
+    PostgreSQL server using SQLAlchemy. It sets the connection to use the 
+    AUTOCOMMIT isolation level to execute the CREATE DATABASE command outside 
+    of a transaction. If the database creation fails due to the database 
+    already existing, it catches the ProgrammingError exception and prints an 
+    error message. After attempting to create the database, it disposes of the 
+    engine to close the connection.
+
+    Args:
+        database_name (str): The name of the database to be created. This name 
+        should be validated or sanitized to avoid SQL injection risks, although 
+        this function assumes it's called in a controlled environment.
+
+    Returns:
+        None.
+
+    Raises:
+        ProgrammingError: An error occurred while attempting to create the 
+        database. This could be due to various reasons, including but not 
+        limited to, the database already existing.
+
+    """
+    # Create an engine
+    engine = create_engine(DATABASE_URL)
+
+    # Connect to the database using a context manager
+    with engine.connect() as conn:
+        # Apply execution options to the connection for autocommit
+        conn = conn.execution_options(isolation_level="AUTOCOMMIT")
+
+        # Dynamically construct the CREATE DATABASE statement as a text object
+        create_database_statement = text(f'CREATE DATABASE {database_name}')
+
+        # Try to create a new database, handle the exception if it already exists
+        try:
+            conn.execute(create_database_statement)
+        except ProgrammingError as e:
+            raise RuntimeError(f"Database creation failed: {e}") from e
+
+    # Close the engine
+    engine.dispose()
 
 
 class StockManager:

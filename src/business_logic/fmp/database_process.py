@@ -15,6 +15,7 @@ import os
 import time
 from datetime import datetime, timedelta
 import csv
+import re
 from dotenv import load_dotenv
 from sqlalchemy import func, desc
 from sqlalchemy.orm import aliased
@@ -22,11 +23,53 @@ from sqlalchemy.exc import SQLAlchemyError
 from src.models.base import Session
 from src.models.fmp.stock import StockSymbol, DailyChartEOD, HistoricalDividend
 from src.services.api import get_jsonparsed_data
-from src.dal.fmp.database_operation import StockManager
+from src.dal.fmp.database_operation import StockManager, create_database
 from src.dal.fmp.database_query import StockQuery
 
 load_dotenv()
 API_KEY_FMP = os.getenv('API_KEY_FMP')
+
+def create_new_database(database_name: str) -> None:
+    """
+    Validates the database name for conformity to naming rules and creates a new database.
+
+    This function validates the given database name to ensure it contains only 
+    alphanumeric characters and underscores, which conforms to typical database 
+    naming conventions. If the validation passes, it proceeds to create the 
+    database by calling a Data Access Layer (DAL) function `create_database`. 
+    If any step fails, it raises a RuntimeError with a descriptive
+    message about the failure.
+
+    Args:
+        database_name (str): The name of the database to be created. The name 
+        should not contain spaces or special characters other than underscores.
+
+    Returns:
+        None.
+
+    Raises:
+        RuntimeError: If the database name is invalid (contains spaces or 
+        special characters), or if there's a SQLAlchemy error during the 
+        database creation process, or if any unexpected error occurs.
+
+    """
+    try:
+        # Verify no spaces or special characters
+        if not re.match("^[a-zA-Z0-9_]+$", database_name):
+            raise ValueError(
+                "Database name must contain only alphanumeric characters and underscores."
+            )
+
+        # Create the new database
+        create_database(database_name.lower())
+
+    except ValueError as e:
+        raise RuntimeError(f"Invalid database name: {e}") from e
+    except SQLAlchemyError as e:
+        raise RuntimeError(f"Failed to create a database due to database error: {e}") from e
+    except Exception as e:
+        raise RuntimeError(f"Failed to create a database due to an unexpected error: {e}") from e
+
 
 class StockService:
     """Service class for managing stock operations."""
