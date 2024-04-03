@@ -78,6 +78,49 @@ def create_database(database_name: str):
     # Close the engine
     engine.dispose()
 
+    # After successfully creating the database, update the .env file
+    update_env_file(database_name)
+
+def update_env_file(new_db_name: str, env_file_path='.env'):
+    """Updates the DB_NAME value in a specified .env file.
+
+    This function reads an .env file line by line to find the `DB_NAME` 
+    setting. It then replaces the existing database name with the `new_db_name` 
+    provided as an argument. The updated content is written back to the same .env file.
+
+    Args:
+        new_db_name: The new database name to be written into the .env file.
+        env_file_path: Optional; the file path to the .env file that will be 
+        updated. Defaults to '.env'.
+
+    Returns:
+        None. The function directly modifies the file specified by `env_file_path`.
+
+    Raises:
+        FileNotFoundError: If the .env file specified by `env_file_path` does not exist.
+        PermissionError: If the script does not have the necessary permissions 
+        to read from or write to the .env file.
+        Exception: If any other unexpected error occurs during the file read/write process.
+
+    """
+    try:
+        # Read the current contents of the file
+        with open(env_file_path, 'r', encoding='utf8') as file:
+            lines = file.readlines()
+
+        # Replace the DB_NAME value
+        with open(env_file_path, 'w', encoding='utf8') as file:
+            for line in lines:
+                if line.startswith('DB_NAME='):
+                    line = f'DB_NAME={new_db_name}\n'
+                file.write(line)
+
+    except FileNotFoundError as e:
+        raise FileNotFoundError(f"The file {env_file_path} does not exist.") from e
+    except PermissionError as e:
+        raise PermissionError(f"Permission denied when accessing {env_file_path}.") from e
+    except Exception as e: # pylint: disable=broad-except
+        raise (f"An error occurred while updating {env_file_path}: {e}") from e
 
 class StockManager:
     """Manages operations related to stock data in the database."""
