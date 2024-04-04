@@ -14,7 +14,7 @@ from PyQt6.QtWidgets import (QMainWindow, QMenu, QInputDialog, QLineEdit,
     QMessageBox)
 from PyQt6.QtGui import QDesktopServices
 from PyQt6.QtCore import QUrl
-from src.business_logic.fmp.database_process import create_new_database
+from src.business_logic.fmp.database_process import DBService
 import src.ui.main_window_UI as window
 
 
@@ -53,6 +53,8 @@ class MainWindow(QMainWindow, window.Ui_MainWindow):
         self.setupUi(self)
 
         self.setup_signal_connections()
+
+        self.db_service = None
 
     def setup_signal_connections(self):
         """Set up the signal connections for the UI elements."""
@@ -180,9 +182,10 @@ class MainWindow(QMainWindow, window.Ui_MainWindow):
         This function displays a modal input dialog asking the user to enter 
         the name of a new database they wish to create. If the user provides a 
         name and clicks OK, the function attempts to create the database with 
-        the given name by calling `create_new_database`. If the database 
-        creation is successful or fails due to a validation or SQLAlchemy error,
-        appropriate feedback should be given to the user (not covered in this snippet).
+        the given name by calling `create_new_database` function of the 
+        DBService class. If the database creation is successful or fails due to 
+        a validation or SQLAlchemy error, appropriate feedback should be given 
+        to the user (not covered in this snippet).
 
         Raises:
             RuntimeError: Propagated from `create_new_database(database_name)` 
@@ -199,7 +202,9 @@ class MainWindow(QMainWindow, window.Ui_MainWindow):
         if ok_pressed and database_name:
             try:
                 # Attempt to create the new database with the provided name
-                create_new_database(database_name)
+                self.db_service = DBService(database_name)
+                self.db_service.create_new_database()
+
                 # Show a success message to the user
                 QMessageBox.information(self, "Success", "Database created successfully!")
             except RuntimeError as e:

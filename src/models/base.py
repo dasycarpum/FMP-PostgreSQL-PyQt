@@ -17,6 +17,12 @@ from sqlalchemy.orm import sessionmaker
 
 load_dotenv()
 
+DATABASE_URL = (
+    f"postgresql+psycopg2://"
+    f"{os.getenv('DB_USER')}:{os.getenv('DB_PASSWORD')}@"
+    f"{os.getenv('DB_HOST')}:{os.getenv('DB_PORT')}/postgres"
+)
+
 DATABASE_URI = (
     f"postgresql+psycopg2://"
     f"{os.getenv('DB_USER')}:{os.getenv('DB_PASSWORD')}@"

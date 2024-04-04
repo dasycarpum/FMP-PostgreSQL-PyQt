@@ -13,114 +13,214 @@ via SQLAlchemy. These functions are part of the data access logic (DAL).
 
 import os
 from datetime import datetime
-from dotenv import load_dotenv
 from sqlalchemy import update, exc, create_engine, text
 from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.orm import sessionmaker
 from sqlalchemy.exc import SQLAlchemyError, ProgrammingError
-from src.models.base import Session
+from src.models.base import Session, DATABASE_URL
 from src.models.fmp.stock import (StockSymbol, CompanyProfile, DailyChartEOD,
     HistoricalDividend, HistoricalKeyMetrics, STOXXEurope600)
 from src.services.date import parse_date
 from src.services.various import (safe_convert_to_int,
     generate_dividend_signature)
 
-load_dotenv()
 
-DATABASE_URL = (
-    f"postgresql+psycopg2://"
-    f"{os.getenv('DB_USER')}:{os.getenv('DB_PASSWORD')}@"
-    f"{os.getenv('DB_HOST')}:{os.getenv('DB_PORT')}/postgres"
-)
+class DBManager:
+    """Manages operations related to the database."""
 
-def create_database(database_name: str):
-    """
-    Creates a PostgreSQL database using SQLAlchemy and psycopg2.
+    def __init__(self, database_name: str):
+        """Initializes the DBManager with a database name."""
+        self.database_name = database_name
 
-    This function attempts to create a new database by connecting to the 
-    PostgreSQL server using SQLAlchemy. It sets the connection to use the 
-    AUTOCOMMIT isolation level to execute the CREATE DATABASE command outside 
-    of a transaction. If the database creation fails due to the database 
-    already existing, it catches the ProgrammingError exception and prints an 
-    error message. After attempting to create the database, it disposes of the 
-    engine to close the connection.
+    def create_database(self):
+        """
+        Creates a PostgreSQL database using SQLAlchemy and psycopg2.
 
-    Args:
-        database_name (str): The name of the database to be created. This name 
-        should be validated or sanitized to avoid SQL injection risks, although 
-        this function assumes it's called in a controlled environment.
+        This function attempts to create a new database by connecting to the 
+        PostgreSQL server using SQLAlchemy. It sets the connection to use the 
+        AUTOCOMMIT isolation level to execute the CREATE DATABASE command 
+        outside of a transaction. If the database creation fails due to the 
+        database already existing, it catches the ProgrammingError exception 
+        and prints an error message. After attempting to create the database, 
+        it disposes of the engine to close the connection and # update the .env 
+        file.
 
-    Returns:
-        None.
+        Args:
+            None.
 
-    Raises:
-        ProgrammingError: An error occurred while attempting to create the 
-        database. This could be due to various reasons, including but not 
-        limited to, the database already existing.
+        Returns:
+            None.
 
-    """
-    # Create an engine
-    engine = create_engine(DATABASE_URL)
+        Raises:
+            ProgrammingError: An error occurred while attempting to create the 
+            database. This could be due to various reasons, including but not 
+            limited to, the database already existing.
 
-    # Connect to the database using a context manager
-    with engine.connect() as conn:
-        # Apply execution options to the connection for autocommit
-        conn = conn.execution_options(isolation_level="AUTOCOMMIT")
+        """
+        # Create an engine
+        engine = create_engine(DATABASE_URL)
 
-        # Dynamically construct the CREATE DATABASE statement as a text object
-        create_database_statement = text(f'CREATE DATABASE {database_name}')
+        # Connect to the database using a context manager
+        with engine.connect() as conn:
+            # Apply execution options to the connection for autocommit
+            conn = conn.execution_options(isolation_level="AUTOCOMMIT")
 
-        # Try to create a new database, handle the exception if it already exists
+            # Dynamically construct the CREATE DATABASE statement as a text object
+            create_db_statement = text(f'CREATE DATABASE {self.database_name}')
+
+            # Try to create a new database, handle the exception if it already exists
+            try:
+                conn.execute(create_db_statement)
+            except ProgrammingError as e:
+                raise RuntimeError(f"Database creation failed: {e}") from e
+
+        # Close the engine
+        engine.dispose()
+
+        # After successfully creating the database, update the .env file
+        self.update_env_file('.env')
+
+    def update_env_file(self, env_file_path: str):
+        """Updates the DB_NAME value in a specified .env file.
+
+        This function reads an .env file line by line to find the `DB_NAME` 
+        setting. It then replaces the existing database name with the 
+        `database_name` provided as an class attribute. The updated content is 
+        written back to the same .env file.
+
+        Args:
+            env_file_path: The file path to the .env file that will be 
+            updated.
+
+        Returns:
+            None. The function directly modifies the file specified by `env_file_path`.
+
+        Raises:
+            FileNotFoundError: If the .env file specified by `env_file_path` does not exist.
+            PermissionError: If the script does not have the necessary 
+            permissions to read from or write to the .env file.
+            Exception: If any other unexpected error occurs during the file 
+            read/write process.
+
+        """
         try:
-            conn.execute(create_database_statement)
-        except ProgrammingError as e:
-            raise RuntimeError(f"Database creation failed: {e}") from e
+            # Read the current contents of the file
+            with open(env_file_path, 'r', encoding='utf8') as file:
+                lines = file.readlines()
 
-    # Close the engine
-    engine.dispose()
+            # Replace the DB_NAME value
+            with open(env_file_path, 'w', encoding='utf8') as file:
+                for line in lines:
+                    if line.startswith('DB_NAME='):
+                        line = f'DB_NAME={self.database_name}\n'
+                    file.write(line)
 
-    # After successfully creating the database, update the .env file
-    update_env_file(database_name)
+        except FileNotFoundError as e:
+            raise FileNotFoundError(f"The file {env_file_path} does not exist.") from e
+        except PermissionError as e:
+            raise PermissionError(f"Permission denied when accessing {env_file_path}.") from e
+        except Exception as e: # pylint: disable=broad-except
+            raise (f"An error occurred while updating {env_file_path}: {e}") from e
 
-def update_env_file(new_db_name: str, env_file_path='.env'):
-    """Updates the DB_NAME value in a specified .env file.
+    def reload_env_file(self, env_file_path: str):
+        """
+        Reloads environment variables from a specified .env file.
 
-    This function reads an .env file line by line to find the `DB_NAME` 
-    setting. It then replaces the existing database name with the `new_db_name` 
-    provided as an argument. The updated content is written back to the same .env file.
+        This function reads a .env file line by line, updates the environment 
+        variables in the os.environ dictionary based on the contents of the 
+        file. It expects each line to be in the KEY=VALUE format. Lines that do 
+        not comply with this format or are empty will be skipped. Comments 
+        (lines starting with '#') are also ignored.
 
-    Args:
-        new_db_name: The new database name to be written into the .env file.
-        env_file_path: Optional; the file path to the .env file that will be 
-        updated. Defaults to '.env'.
+        Args:
+            env_file_path (str): The path to the .env file to be read and 
+            processed. This should be a string representing a valid filesystem path.
 
-    Returns:
-        None. The function directly modifies the file specified by `env_file_path`.
+        Returns:
+            None.
 
-    Raises:
-        FileNotFoundError: If the .env file specified by `env_file_path` does not exist.
-        PermissionError: If the script does not have the necessary permissions 
-        to read from or write to the .env file.
-        Exception: If any other unexpected error occurs during the file read/write process.
+        Raises:
+            FileNotFoundError: If the specified .env file does not exist at the provided path.
+            
+        Note:
+            This function directly modifies the os.environ dictionary to update 
+            environment variables. This means that changes are reflected 
+            globally within the application. Additionally, this function does 
+            not handle complex parsing cases like quoted values or escaped 
+            characters.
 
-    """
-    try:
-        # Read the current contents of the file
-        with open(env_file_path, 'r', encoding='utf8') as file:
-            lines = file.readlines()
+        """
+        if os.path.exists(env_file_path):
+            with open(env_file_path, 'r', encoding='utf8') as file:
+                for line in file:
+                    # Strip whitespace and skip if line is empty or a comment
+                    line = line.strip()
+                    if not line or line.startswith('#'):
+                        continue
 
-        # Replace the DB_NAME value
-        with open(env_file_path, 'w', encoding='utf8') as file:
-            for line in lines:
-                if line.startswith('DB_NAME='):
-                    line = f'DB_NAME={new_db_name}\n'
-                file.write(line)
+                    # Split on the first equals sign
+                    parts = line.split('=', 1)
+                    if len(parts) == 2:
+                        key, value = parts
+                        os.environ[key] = value
+                    else:
+                        print(f"Skipping line: {line}")
+        else:
+            raise FileNotFoundError(f"The file {env_file_path} does not exist.")
 
-    except FileNotFoundError as e:
-        raise FileNotFoundError(f"The file {env_file_path} does not exist.") from e
-    except PermissionError as e:
-        raise PermissionError(f"Permission denied when accessing {env_file_path}.") from e
-    except Exception as e: # pylint: disable=broad-except
-        raise (f"An error occurred while updating {env_file_path}: {e}") from e
+    def add_timescaledb_extension(self):
+        """
+        Adds the TimescaleDB extension to the current PostgreSQL database.
+
+        This function first reloads the environment variables from the .env 
+        file to ensure it is working with the most current settings, 
+        particularly the `DB_NAME`. It then constructs a new database URI with 
+        these environment variables and establishes a new connection to the 
+        database. Once connected, it executes the SQL command to create the 
+        TimescaleDB extension if it does not already exist.
+
+        Raises:
+            Exception: If any error occurs during the execution of the SQL 
+            command to add the TimescaleDB extension. The original exception is 
+            encapsulated within the raised exception to provide context.
+
+        Note:
+            - This function assumes that the `.env` file is located in the 
+            current working directory and is named `.env`.
+            - It directly modifies the global os.environ dictionary by 
+            reloading the `.env` file, which affects the entire running 
+            application.
+            - The function creates a new SQLAlchemy engine and session using 
+            the updated database connection URI. This is necessary to ensure 
+            that operations are performed on the correct database.
+            - The database user specified by `DB_USER` must have sufficient 
+            privileges to create extensions in the target database.
+            
+        """
+        # Reload .env variables to ensure the DB_NAME is current
+        self.reload_env_file('.env')
+
+        # Ensure the DATABASE_URI is constructed with the updated environment variables
+        NEW_DATABASE_URI = ( # pylint: disable=C0103
+            f"postgresql+psycopg2://"
+            f"{os.getenv('DB_USER')}:{os.getenv('DB_PASSWORD')}@"
+            f"{os.getenv('DB_HOST')}:{os.getenv('DB_PORT')}/"
+            f"{os.getenv('DB_NAME')}"
+        )
+
+        # Create a new engine and session with the updated DATABASE_URI
+        new_engine = create_engine(NEW_DATABASE_URI)
+        NewSession = sessionmaker(bind=new_engine) # pylint: disable=C0103
+
+        db_session = NewSession()
+
+        try:
+            create_extension = text("CREATE EXTENSION IF NOT EXISTS timescaledb;")
+            db_session.execute(create_extension)
+            db_session.commit()  # Ensure changes are committed
+
+        except Exception as e:
+            raise(f"Failed to add TimescaleDB extension: {e}") from e
 
 class StockManager:
     """Manages operations related to stock data in the database."""
