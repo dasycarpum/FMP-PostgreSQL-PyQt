@@ -14,7 +14,8 @@ from PyQt6.QtWidgets import (QMainWindow, QMenu, QInputDialog, QLineEdit,
     QMessageBox)
 from PyQt6.QtGui import QDesktopServices
 from PyQt6.QtCore import QUrl
-from src.business_logic.fmp.database_process import DBService
+from src.models.base import Session
+from src.business_logic.fmp.database_process import DBService, StockService
 import src.ui.main_window_UI as window
 
 
@@ -55,6 +56,8 @@ class MainWindow(QMainWindow, window.Ui_MainWindow):
         self.setup_signal_connections()
 
         self.db_service = None
+        self.db_session = Session()
+        self.stock_service = StockService(self.db_session)
 
     def setup_signal_connections(self):
         """Set up the signal connections for the UI elements."""
@@ -62,6 +65,7 @@ class MainWindow(QMainWindow, window.Ui_MainWindow):
         self.action_postgresql_update.triggered.connect(self.set_pdf_to_open)
         self.action_timescaledb_install.triggered.connect(self.set_pdf_to_open)
         self.action_create_new_database.triggered.connect(self.setup_new_database)
+        self.action_create_tables.triggered.connect(self.setup_stock_tables)
 
     def set_pdf_to_open(self):
         """
@@ -210,3 +214,34 @@ class MainWindow(QMainWindow, window.Ui_MainWindow):
             except RuntimeError as e:
                 # Show an error message to the user
                 QMessageBox.critical(self, "Database Creation Failed", str(e))
+
+    def setup_stock_tables(self):
+        """
+        Attempts to create stock tables in the database and notifies the user 
+        of the outcome.
+
+        This function calls the `create_stock_tables` method of the 
+        `stock_service` object to initiate the creation of stock-related tables 
+        in the database. If the operation is successful, a success message is 
+        displayed to the user. If an error occurs, the function catches the 
+        exception and displays an error message with the details of the failure.
+
+        Args:
+            None.
+
+        Raises:
+            Exception: Captures any exceptions raised during the table creation 
+            process and displays an error message to the user. The exception is 
+            not re-raised; instead, execution continues after displaying the 
+            message.
+
+        """
+        try:
+            self.stock_service.create_stock_tables()
+
+            # Show a success message to the user
+            QMessageBox.information(self, "Success", "Stock tables created successfully!")
+
+        except Exception as e: # pylint: disable=broad-except
+            QMessageBox.critical(self, "Error",
+            f"Failed to create stock tables due to an unexpected error: {e}")

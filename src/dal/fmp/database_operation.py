@@ -16,8 +16,9 @@ from datetime import datetime
 from sqlalchemy import update, exc, create_engine, text
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy.exc import SQLAlchemyError, ProgrammingError
-from src.models.base import Session, DATABASE_URL
+from sqlalchemy.exc import (SQLAlchemyError, ProgrammingError, IntegrityError,
+    OperationalError)
+from src.models.base import Session, DATABASE_URL, engine, Base
 from src.models.fmp.stock import (StockSymbol, CompanyProfile, DailyChartEOD,
     HistoricalDividend, HistoricalKeyMetrics, STOXXEurope600)
 from src.services.date import parse_date
@@ -58,10 +59,10 @@ class DBManager:
 
         """
         # Create an engine
-        engine = create_engine(DATABASE_URL)
+        engine_ = create_engine(DATABASE_URL)
 
         # Connect to the database using a context manager
-        with engine.connect() as conn:
+        with engine_.connect() as conn:
             # Apply execution options to the connection for autocommit
             conn = conn.execution_options(isolation_level="AUTOCOMMIT")
 
@@ -75,7 +76,7 @@ class DBManager:
                 raise RuntimeError(f"Database creation failed: {e}") from e
 
         # Close the engine
-        engine.dispose()
+        engine_.dispose()
 
         # After successfully creating the database, update the .env file
         self.update_env_file('.env')
@@ -228,6 +229,53 @@ class StockManager:
     def __init__(self, db_session: Session):
         """Initializes the StockManager with a database session."""
         self.db_session = db_session
+
+    def create_stock_tables_sequentially(self):
+        """
+        Creates all tables in the database based on the SQLAlchemy models 
+        defined in the application.
+        
+        This function attempts to create all database tables by calling 
+        SQLAlchemy's `create_all` method, which looks at all the subclasses of 
+        Base in the application. It intelligently orders the creation of tables 
+        based on their dependencies. In case of any error during this process, 
+        it rolls back the session to prevent partial changes and raises a 
+        RuntimeError with details of the error.
+
+        Args:
+            None.
+    
+        Returns:
+            None.
+        
+        Raises:
+            RuntimeError: An error occurred during the table creation process. 
+            The specific error is caught from SQLAlchemy's exceptions and 
+            wrapped into a RuntimeError to be handled by the caller. This
+            includes a range of errors from integrity issues (like attempting 
+            to insert duplicate data) to operational errors (such as issues 
+            with the database connection) and programming errors (like syntax 
+            errors in SQL queries or issues with the defined models).
+
+        """
+        try:
+            Base.metadata.create_all(engine)
+
+        except IntegrityError as e:
+            self.db_session.rollback()
+            # Handle integrity issues, possibly log or inform the user about duplicate data
+            raise RuntimeError(f"Integrity error: {e}") from e
+        except OperationalError as e:
+            self.db_session.rollback()
+            # Handle operational issues like connection errors
+            raise RuntimeError(f"Operational error: {e}") from e
+        except ProgrammingError as e:
+            self.db_session.rollback()
+            # Handle programming errors, such as incorrect table names or SQL syntax errors
+            raise RuntimeError(f"Programming error: {e}") from e
+        except SQLAlchemyError as e:
+            self.db_session.rollback()  # Catch-all for other SQLAlchemy errors
+            raise RuntimeError(f"General SQLAlchemy database error occurred: {e}") from e
 
     def insert_stock_symbols(self, data):
         """

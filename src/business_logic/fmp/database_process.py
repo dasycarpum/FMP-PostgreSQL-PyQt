@@ -97,6 +97,40 @@ class StockService:
         """
         self.db_session = db_session
 
+    def create_stock_tables(self) -> None:
+        """
+        Creates all stock-related tables in the database.
+
+        This function utilizes the `StockManager` to create tables based on the 
+        SQLAlchemy models defined for stock data. It wraps the table creation 
+        process in a try-except block to handle any SQLAlchemy errors or other 
+        exceptions, ensuring that informative errors are raised in case of 
+        failure.
+
+        Args:
+            None.
+
+        Raises:
+            RuntimeError: If an error occurs during the table creation process. 
+            This includes both SQLAlchemy related errors and any unexpected 
+            exceptions. The error message provides details about the failure to 
+            aid in debugging.
+
+        """
+        try:
+            # Initialize StockManager with the database session
+            stock_manager = StockManager(self.db_session)
+
+            # Create tables
+            stock_manager.create_stock_tables_sequentially()
+
+        except SQLAlchemyError as e:
+            raise RuntimeError(
+                f"Failed to create stock tables due to database error: {e}") from e
+        except Exception as e:
+            raise RuntimeError(
+                f"Failed to create stock tables due to an unexpected error: {e}") from e 
+
     def fetch_stock_symbols(self) -> None:
         """
         Fetches stock symbols from an external API and updates the database.
@@ -105,7 +139,7 @@ class StockService:
         the process of data retrieval and database update.
         
         Args:
-            db_session (Session): The database session for performing database operations.
+            None.
             
         Raises:
             Exception: Raises an exception if the API data retrieval or database update fails.
