@@ -23,6 +23,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from src.models.base import Session
 from src.models.fmp.stock import StockSymbol, DailyChartEOD, HistoricalDividend
 from src.services.api import get_jsonparsed_data
+from src.services.date import generate_business_time_series
 from src.dal.fmp.database_operation import DBManager, StockManager
 from src.dal.fmp.database_query import StockQuery
 
@@ -130,6 +131,32 @@ class StockService:
         except Exception as e:
             raise RuntimeError(
                 f"Failed to create stock tables due to an unexpected error: {e}") from e 
+
+    def create_business_time_series(self) -> None:
+        """
+        Generates a time series of business dates, inserts them into a 
+        database, and converts the table into a TimescaleDB hypertable.
+
+        Args:
+            None
+
+        Raises:
+            RuntimeError: If an error occurs during the table creation process. 
+            This includes both SQLAlchemy related errors and any unexpected 
+            exceptions. The error message provides details about the failure to 
+            aid in debugging.
+
+        """
+        try:
+            # Create table
+            generate_business_time_series()
+
+        except SQLAlchemyError as e:
+            raise RuntimeError(
+                f"Failed to generate time series table due to database error: {e}") from e
+        except Exception as e:
+            raise RuntimeError(
+                f"Failed to generate time series table due to an unexpected error: {e}") from e 
 
     def fetch_stock_symbols(self) -> None:
         """

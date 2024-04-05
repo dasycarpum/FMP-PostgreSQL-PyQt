@@ -54,7 +54,7 @@ def parse_date(date_str):
             continue
     return None
 
-def create_business_time_series():
+def generate_business_time_series():
     """
     Generates a time series of business dates excluding weekends and holidays 
     specific to France, inserts them into a database, and converts the table 
@@ -115,13 +115,12 @@ def create_business_time_series():
                     connection.execute(
                         business_dates_table.insert().values(date=business_date)
                     )
-
-        print("Business dates inserted successfully.")
+        # print("Business dates inserted successfully.")
 
     except IntegrityError as e:
-        print(f"Integrity error occurred: {e}")
+        raise(f"Integrity error occurred: {e}") from e
     except OperationalError as e:
-        print(f"Operational error with the database: {e}")
+        raise(f"Operational error with the database: {e}") from e
     except SQLAlchemyError as e:
         # Catching other SQLAlchemy-related errors
-        print(f"Database error occurred: {e}")
+        raise(f"Database error occurred: {e}") from e

@@ -217,14 +217,15 @@ class MainWindow(QMainWindow, window.Ui_MainWindow):
 
     def setup_stock_tables(self):
         """
-        Attempts to create stock tables in the database and notifies the user 
-        of the outcome.
+        Attempts to create stock tables and business time series table in the 
+        database and notifies the user of the outcome.
 
-        This function calls the `create_stock_tables` method of the 
-        `stock_service` object to initiate the creation of stock-related tables 
-        in the database. If the operation is successful, a success message is 
-        displayed to the user. If an error occurs, the function catches the 
-        exception and displays an error message with the details of the failure.
+        This function calls the `create_stock_tables` and 
+        `create_business_time_series` method of the `stock_service` object to 
+        initiate the creation of stock-related tables in the database. If the 
+        operation is successful, a success message is displayed to the user. If 
+        an error occurs, the function catches the exception and displays an 
+        error message with the details of the failure.
 
         Args:
             None.
@@ -238,6 +239,7 @@ class MainWindow(QMainWindow, window.Ui_MainWindow):
         """
         try:
             self.stock_service.create_stock_tables()
+            self.stock_service.create_business_time_series()
 
             # Show a success message to the user
             QMessageBox.information(self, "Success", "Stock tables created successfully!")
