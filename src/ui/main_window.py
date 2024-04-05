@@ -11,9 +11,9 @@ Created on 2024-04-01
 
 import os
 from PyQt6.QtWidgets import (QMainWindow, QMenu, QInputDialog, QLineEdit,
-    QMessageBox)
-from PyQt6.QtGui import QDesktopServices
-from PyQt6.QtCore import QUrl
+    QMessageBox, QApplication)
+from PyQt6.QtGui import QDesktopServices, QCursor
+from PyQt6.QtCore import QUrl, Qt
 from src.models.base import Session
 from src.business_logic.fmp.database_process import DBService, StockService
 from src.business_logic.fmp.database_reporting import StockReporting
@@ -220,7 +220,8 @@ class MainWindow(QMainWindow, window.Ui_MainWindow):
     def setup_stock_tables(self):
         """
         Attempts to create stock tables and business time series table in the 
-        database and notifies the user of the outcome.
+        database, convert some tables in TimescaleDB hypertables, and notifies 
+        the user of the outcome.
 
         This function calls the `create_stock_tables` and 
         `create_business_time_series` method of the `stock_service` object to 
@@ -239,9 +240,15 @@ class MainWindow(QMainWindow, window.Ui_MainWindow):
             message.
 
         """
+        # Set the mouse cursor to hourglass
+        QApplication.setOverrideCursor(QCursor(Qt.CursorShape.WaitCursor))
+
         try:
-            # self.stock_service.create_stock_tables()
-            # self.stock_service.create_business_time_series()
+            self.stock_service.create_stock_tables()
+            self.stock_service.convert_date_tables_to_hypertables()
+
+            self.stock_service.create_business_time_series()
+
             self.update_performance_report()
 
             # Show a success message to the user
@@ -250,6 +257,8 @@ class MainWindow(QMainWindow, window.Ui_MainWindow):
         except Exception as e: # pylint: disable=broad-except
             QMessageBox.critical(self, "Error",
             f"Failed to create stock tables due to an unexpected error: {e}")
+        finally:
+            QApplication.restoreOverrideCursor()
 
     def update_performance_report(self):
         """

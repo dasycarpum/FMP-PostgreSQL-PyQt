@@ -14,7 +14,7 @@ import holidays
 from sqlalchemy import Table, Column, Date, MetaData
 from sqlalchemy.exc import SQLAlchemyError, IntegrityError, OperationalError
 from src.models.base import engine
-from src.services.sql import convert_stock_table_to_hypertable
+from src.services.sql import convert_table_to_hypertable
 
 
 def parse_date(date_str):
@@ -105,7 +105,7 @@ def generate_business_time_series():
         metadata.create_all(engine)
 
         # Convert table into TimescaleDB hypertable
-        convert_stock_table_to_hypertable(table)
+        convert_table_to_hypertable(table)
 
         # Insert business dates into the database
         with engine.connect() as connection:

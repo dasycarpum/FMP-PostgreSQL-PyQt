@@ -13,7 +13,7 @@ from sqlalchemy import text, exc
 from src.models.base import Session
 
 
-def convert_stock_table_to_hypertable(table_name):
+def convert_table_to_hypertable(table_name):
     """
     Converts a specified PostgreSQL table into a TimescaleDB hypertable, 
     handling the necessary preliminary steps, and recreates necessary 
@@ -82,13 +82,8 @@ def convert_stock_table_to_hypertable(table_name):
                     text(f"ALTER TABLE {table_name} ADD CONSTRAINT {index_name} UNIQUE (stock_id, date)")) # pylint: disable=line-too-long
 
         db_session.commit()
-        print(f"Table {table_name} has been successfully converted to a hypertable and constraints have been recreated.") # pylint: disable=line-too-long
 
     except exc.SQLAlchemyError as e:
         # Rollback the transaction in case of an error
         db_session.rollback()
-        print(f"An error occurred: {e}")
-
-    finally:
-        # Close session in all cases (on success or failure)
-        db_session.close()
+        raise(f"An error occurred: {e}") from e

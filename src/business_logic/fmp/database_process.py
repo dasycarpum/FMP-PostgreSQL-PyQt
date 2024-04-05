@@ -24,6 +24,7 @@ from src.models.base import Session
 from src.models.fmp.stock import StockSymbol, DailyChartEOD, HistoricalDividend
 from src.services.api import get_jsonparsed_data
 from src.services.date import generate_business_time_series
+from src.services.sql import convert_table_to_hypertable
 from src.dal.fmp.database_operation import DBManager, StockManager
 from src.dal.fmp.database_query import StockQuery
 
@@ -150,6 +151,36 @@ class StockService:
         try:
             # Create table
             generate_business_time_series()
+
+        except SQLAlchemyError as e:
+            raise RuntimeError(
+                f"Failed to generate time series table due to database error: {e}") from e
+        except Exception as e:
+            raise RuntimeError(
+                f"Failed to generate time series table due to an unexpected error: {e}") from e 
+
+    def convert_date_tables_to_hypertables(self) -> None:
+        """
+        Converts the specified PostgreSQL tables, with a 'date' column, into 
+        TimescaleDB hypertables.
+
+        Args:
+            None
+
+        Raises:
+            RuntimeError: If an error occurs during the table creation process. 
+            This includes both SQLAlchemy related errors and any unexpected 
+            exceptions. The error message provides details about the failure to 
+            aid in debugging.
+
+        """
+        try:
+            # Stock tables to convert
+            tables = ['dailychart', 'dividend', 'keymetrics', 'sxxp']
+
+            for table in tables:
+                convert_table_to_hypertable(table)
+                time.sleep(0.2)
 
         except SQLAlchemyError as e:
             raise RuntimeError(
