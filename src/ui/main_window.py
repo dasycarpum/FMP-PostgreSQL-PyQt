@@ -16,6 +16,7 @@ from PyQt6.QtGui import QDesktopServices
 from PyQt6.QtCore import QUrl
 from src.models.base import Session
 from src.business_logic.fmp.database_process import DBService, StockService
+from src.business_logic.fmp.database_reporting import StockReporting
 import src.ui.main_window_UI as window
 
 
@@ -58,6 +59,7 @@ class MainWindow(QMainWindow, window.Ui_MainWindow):
         self.db_service = None
         self.db_session = Session()
         self.stock_service = StockService(self.db_session)
+        self.stock_reporting = StockReporting(self.db_session)
 
     def setup_signal_connections(self):
         """Set up the signal connections for the UI elements."""
@@ -238,8 +240,9 @@ class MainWindow(QMainWindow, window.Ui_MainWindow):
 
         """
         try:
-            self.stock_service.create_stock_tables()
-            self.stock_service.create_business_time_series()
+            # self.stock_service.create_stock_tables()
+            # self.stock_service.create_business_time_series()
+            self.update_performance_report()
 
             # Show a success message to the user
             QMessageBox.information(self, "Success", "Stock tables created successfully!")
@@ -247,3 +250,38 @@ class MainWindow(QMainWindow, window.Ui_MainWindow):
         except Exception as e: # pylint: disable=broad-except
             QMessageBox.critical(self, "Error",
             f"Failed to create stock tables due to an unexpected error: {e}")
+
+    def update_performance_report(self):
+        """
+        Updates the QTextBrowser with the latest performance data for each table.
+
+        This function retrieves the latest performance data for each table in 
+        the database by calling `report_on_tables_performance` from the 
+        `stock_reporting` object. It formats this data into HTML and displays 
+        it in a QTextBrowser widget within the GUI. The performance data 
+        includes the timestamp of the report, the table name, whether the table 
+        is a hypertable, the execution time for queries on the table, and the 
+        disk size used by the table.
+
+        Raises:
+            RuntimeError: If an error occurs while retrieving the performance 
+            data or while formatting it for display. The error message is shown 
+            to the user in a message box.
+
+        """
+        try:
+            performance_data = self.stock_reporting.report_on_tables_performance()
+            report_html = "<html><head><title>Table Performance Report</title></head><body>"
+            report_html += "<h2>Table Performance Report</h2>"
+            report_html += "<table border='1'><tr><th>Timestamp</th><th>Table Name</th><th>Hypertable</th><th>Execution Time (s)</th><th>Disk Size (bytes)</th></tr>" # pylint: disable=line-too-long
+
+            for record in performance_data:
+                timestamp, table_name, hypertable, execution_time, disk_size = record
+                formatted_timestamp = timestamp.strftime("%Y-%m-%d %H:%M:%S")
+                report_html += f"<tr><td>{formatted_timestamp}</td><td>{table_name}</td><td>{hypertable}</td><td>{execution_time}</td><td>{disk_size}</td></tr>" # pylint: disable=line-too-long
+
+            report_html += "</table></body></html>"
+            self.textBrowser.setHtml(report_html)
+
+        except RuntimeError as e:
+            QMessageBox.critical(self, "Error", str(e))

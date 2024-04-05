@@ -387,10 +387,10 @@ class StockReporting:
             raise RuntimeError(
                 f"Failed to report keymetrics table due to an unexpected error: {e}") from e
 
-    def report_on_table_performance(self) -> None:
+    def report_on_tables_performance(self):
         """
         Generates a performance report for each table in the database by 
-        iterating over all tables and printing performance metrics.
+        iterating over all tables and returns a list of tuples with the performance metrics.
 
         The performance metrics for each table include execution time of a 
         SELECT query and the disk space used by the table, both printed to the 
@@ -400,7 +400,10 @@ class StockReporting:
             None
 
         Returns:
-            None
+            List[Tuple[datetime, str, bool, float, str]]: A list of tuples, 
+            each containing the timestamp, table name, TimescaleDB hypertable 
+            or not, execution time in seconds, and disk space used by the table 
+            in bytes.
 
         Raises:
             RuntimeError: If any SQLAlchemy database operation fails, a 
@@ -413,10 +416,13 @@ class StockReporting:
         try:
             stock_query = StockQuery(self.db_session)
             table_list = stock_query.get_list_of_tables()
+            performance_data = []
 
             for table in table_list:
                 result = stock_query.get_table_performance(table)
-                print (result)
+                performance_data.append(result)
+
+            return performance_data
 
         except SQLAlchemyError as e:
             raise RuntimeError(

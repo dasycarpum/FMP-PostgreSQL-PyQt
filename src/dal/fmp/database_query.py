@@ -700,6 +700,7 @@ class StockQuery:
             tuple: A tuple containing four elements:
                 - the date and time of the query (datetime)
                 - the name of the table (str)
+                - table is a TimescaleDB hypertable (bool)
                 - execution_time (float): The time taken to execute the SELECT 
                 query, rounded to 4 decimal places.
                 - disk_space (str): The disk space used by the table, formatted 
@@ -722,10 +723,12 @@ class StockQuery:
             execution_time = round(time.time() - start_time, 4)
 
             # Check if the table is already a hypertable
+            hypertable = False
             hypertable_check = text(
                 "SELECT * FROM _timescaledb_catalog.hypertable WHERE table_name = :table_name")
             if self.db_session.execute(
                 hypertable_check, {'table_name': table_name}).fetchone() is not None:
+                hypertable = True
                 # Measuring the disk space used by a TimescaleDB table
                 query_ds = text(f"""
                 SELECT pg_size_pretty(hypertable_size('public.{table_name}'));
@@ -738,7 +741,7 @@ class StockQuery:
 
             result_ds = self.db_session.execute(query_ds).fetchone()
 
-            return datetime.now(), table_name, execution_time, result_ds[0]
+            return datetime.now(), table_name, hypertable, execution_time, result_ds[0]
 
         except SQLAlchemyError as e:
             # Rollback the transaction in case of an error
