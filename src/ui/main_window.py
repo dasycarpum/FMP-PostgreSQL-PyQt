@@ -54,12 +54,12 @@ class MainWindow(QMainWindow, window.Ui_MainWindow):
         super(MainWindow, self).__init__(parent)
         self.setupUi(self)
 
-        self.setup_signal_connections()
-
         self.db_service = None
         self.db_session = Session()
         self.stock_service = StockService(self.db_session)
         self.stock_reporting = StockReporting(self.db_session)
+
+        self.setup_signal_connections()
 
     def setup_signal_connections(self):
         """Set up the signal connections for the UI elements."""
@@ -68,6 +68,12 @@ class MainWindow(QMainWindow, window.Ui_MainWindow):
         self.action_timescaledb_install.triggered.connect(self.set_pdf_to_open)
         self.action_create_new_database.triggered.connect(self.setup_new_database)
         self.action_create_tables.triggered.connect(self.setup_stock_tables)
+        self.action_fetch_stock_symbols.triggered.connect(self.fetch_fmp_data)
+        self.action_fetch_stoxx_europe.triggered.connect(self.fetch_fmp_data)
+        self.action_fetch_company_profile.triggered.connect(self.fetch_fmp_data)
+        self.action_fetch_dividend.triggered.connect(self.fetch_fmp_data)
+        self.action_fetch_key_metrics.triggered.connect(self.fetch_fmp_data)
+        self.action_fetch_daily_chart.triggered.connect(self.fetch_fmp_data)
 
     def set_pdf_to_open(self):
         """
@@ -290,7 +296,57 @@ class MainWindow(QMainWindow, window.Ui_MainWindow):
                 report_html += f"<tr><td>{formatted_timestamp}</td><td>{table_name}</td><td>{hypertable}</td><td>{execution_time}</td><td>{disk_size}</td></tr>" # pylint: disable=line-too-long
 
             report_html += "</table></body></html>"
-            self.textBrowser.setHtml(report_html)
+            self.textBrowser_tables.setHtml(report_html)
+            self.tabWidget_reporting.setCurrentIndex(1)
 
         except RuntimeError as e:
             QMessageBox.critical(self, "Error", str(e))
+
+    def fetch_fmp_data(self):
+        """Fetches initial FMP data based on the action initiated by the user.
+
+        This method sets the cursor to an hourglass, indicating a process is 
+        ongoing, then performs a specific action based on the text of the 
+        action triggered by the sender. After the action is performed, it 
+        updates the performance report. If no action is associated with the 
+        sender or if any unexpected error occurs, it shows an error message.
+
+        Raises:
+            AttributeError: If no action is associated with the sender of the action. 
+            Exception: For any unexpected errors during the fetch process.
+
+        """
+        # Set the mouse cursor to hourglass
+        QApplication.setOverrideCursor(QCursor(Qt.CursorShape.WaitCursor))
+
+        try:
+            action = self.sender()
+            if action is None:
+                raise AttributeError("No action associated with the sender.")
+
+            action_text = action.text()
+
+            if action_text == "Stock symbols":
+                self.stock_service.fetch_stock_symbols()
+            elif action_text == "Company profile":
+                self.stock_service.fetch_company_profiles()
+            elif action_text == "STOXX Europe 600":
+                self.stock_service.fetch_sxxp_historical_components('20240301')
+            elif action_text == "Dividend":
+                self.stock_service.fetch_dividends_in_batches()
+            elif action_text == "Key metrics":
+                self.stock_service.fetch_keys_metrics_in_batches()
+            elif action_text == "Daily chart":
+                self.stock_service.fetch_daily_charts_by_period()
+
+            # Show a success message to the user
+            QMessageBox.information(self, "Success", "FMP data fetched successfully!")
+
+            # Display the latest performance data for all tables
+            self.update_performance_report()
+
+        except Exception as e: # pylint: disable=broad-except
+            QMessageBox.critical(self, "Error",
+            f"Failed to fetch FMP {action_text} data due to an unexpected error: {e}")
+        finally:
+            QApplication.restoreOverrideCursor()

@@ -214,10 +214,10 @@ class StockService:
 
         except SQLAlchemyError as e:
             raise RuntimeError(
-                f"Failed to update stock symbols due to database error: {e}") from e
+                f"Failed to fetch stock symbols due to database error: {e}") from e
         except Exception as e:
             raise RuntimeError(
-                f"Failed to update stock symbols due to an unexpected error: {e}") from e
+                f"Failed to fetch stock symbols due to an unexpected error: {e}") from e
 
     def fetch_company_profiles_for_exchange(self, exchange: str,
         batch_size: int = 50, calls_per_minute: int = 300) -> None:
@@ -234,7 +234,8 @@ class StockService:
             RuntimeError: If there's a database error or unexpected error during the update process.
 
         Notes:
-            Examples of european exchanges : ["Copenhagen", "Madrid Stock Exchange", "Frankfurt Stock Exchange", "Paris", "Irish", "Lisbon", "Brussels", "Milan", "Amsterdam", "Helsinki", "Vienna", "Stockholm Stock Exchange", "Swiss Exchange", "London Stock Exchange", "Oslo Stock Exchange", "Athens", "Prague", "Warsaw Stock Exchange", "Riga", "Budapest", "Iceland"] # pylint: disable=line-too-long
+            Examples : ./raw_data/european_exchanges.csv
+
         """
         # Fetch all symbols for the given exchange
         stock_symbol_query = self.db_session.query(
@@ -264,10 +265,51 @@ class StockService:
 
         except SQLAlchemyError as e:
             raise RuntimeError(
-                f"Failed to update company profile due to database error: {e}") from e
+                f"Failed to fetch company profiles for exchange due to database error: {e}") from e
         except Exception as e:
             raise RuntimeError(
-                f"Failed to update company profile due to an unexpected error: {e}") from e
+                f"Failed to fetch company profiles for exchange due to an unexpected error: {e}"
+                ) from e
+
+    def fetch_company_profiles(self) -> None:
+        """
+        Fetches company profiles for stock exchanges listed in a CSV file and 
+        updates them in the database. 
+        
+        This method reads a predefined CSV file containing stock exchange 
+        identifiers, then iterates over these identifiers to fetch and update 
+        company profiles for each exchange by leveraging the 
+        `fetch_company_profiles_for_exchange` method. 
+
+        Args:
+            None.
+
+        Raises:
+            RuntimeError: If a database error is encountered during the process 
+            of fetching company profiles, or if an unexpected error occurs, a 
+            RuntimeError is raised with a message detailing the issue. The 
+            error details are extracted from the SQLAlchemyError or generic 
+            exception caught during the operation.
+
+        """
+        try:
+            # Define the file path based on the given date string
+            file_path = './raw_data/stock_exchange.csv'
+
+            # Open the CSV file and read data
+            with open(file_path, 'r', encoding='utf8') as csvfile:
+                data = csv.reader(csvfile)
+                # Inserting data into the database
+                for row in data:
+                    self.fetch_company_profiles_for_exchange(row[0])
+
+        except SQLAlchemyError as e:
+            raise RuntimeError(
+                f"Failed to fetch company profiles due to database error: {e}"
+            ) from e
+        except Exception as e:
+            raise RuntimeError(
+                f"Failed to fetch company profiles due to an unexpected error: {e}") from e
 
     def fetch_daily_chart_for_period(self, symbol: str, start_date: str,
         end_date:str) -> None:
@@ -309,10 +351,10 @@ class StockService:
 
         except SQLAlchemyError as e:
             raise RuntimeError(
-                f"Failed to update daily chart due to database error: {e}") from e
+                f"Failed to fetch daily chart for period due to database error: {e}") from e
         except Exception as e:
             raise RuntimeError(
-                f"Failed to update daily chart due to an unexpected error: {e}") from e
+                f"Failed to fetch daily chart for period due to an unexpected error: {e}") from e
 
     def fetch_historical_dividend(self, symbol: str) -> None:
         """Fetches and stores historical dividend data for a specified stock symbol.
@@ -346,10 +388,10 @@ class StockService:
 
         except SQLAlchemyError as e:
             raise RuntimeError(
-                f"Failed to update historical dividend due to database error: {e}") from e
+                f"Failed to fetc historical dividend due to database error: {e}") from e
         except Exception as e:
             raise RuntimeError(
-                f"Failed to update historical dividend due to an unexpected error: {e}") from e
+                f"Failed to fetch historical dividend due to an unexpected error: {e}") from e
 
     def fetch_historical_key_metrics(self, symbol: str,
         period: str = 'quarter') -> None:
@@ -390,10 +432,10 @@ class StockService:
 
         except SQLAlchemyError as e:
             raise RuntimeError(
-                f"Failed to update historical key metrics due to database error: {e}") from e
+                f"Failed to fetch historical key metrics due to database error: {e}") from e
         except Exception as e:
             raise RuntimeError(
-                f"Failed to update historical key metrics due to an unexpected error: {e}") from e
+                f"Failed to fetch historical key metrics due to an unexpected error: {e}") from e
 
     def fetch_sxxp_historical_components(self, date_str: str) -> None:
         """
@@ -433,11 +475,11 @@ class StockService:
 
         except SQLAlchemyError as e:
             raise RuntimeError(
-                f"Failed to update historical sxxp components due to database error: {e}"
+                f"Failed to fetch historical sxxp components due to database error: {e}"
             ) from e
         except Exception as e:
             raise RuntimeError(
-                f"Failed to update historical sxxp components due to an unexpected error: {e}"
+                f"Failed to fetch historical sxxp components due to an unexpected error: {e}"
             ) from e
 
     def fetch_dividends_in_batches(self, batch_size: int = 50, calls_per_minute: int = 300) -> None:
@@ -501,7 +543,11 @@ class StockService:
                     time.sleep(sleep_time)
 
         except SQLAlchemyError as db_error:
-            raise ValueError("Database error occurred while fetching stock symbols.") from db_error
+            raise ValueError(
+                "Database error occurred while fetching dividends in batches.") from db_error
+        except Exception as e:
+            raise RuntimeError(
+                f"Failed to fetch dividends in batches due to an unexpected error: {e}") from e
 
     def fetch_keys_metrics_in_batches(self, period: str = 'quarter',
         batch_size: int = 50, calls_per_minute: int = 300) -> None:
@@ -567,7 +613,11 @@ class StockService:
                     time.sleep(sleep_time)
 
         except SQLAlchemyError as db_error:
-            raise ValueError("Database error occurred while fetching stock symbols.") from db_error
+            raise ValueError(
+                "Database error occurred while fetching keys metrics in batches.") from db_error
+        except Exception as e:
+            raise RuntimeError(
+                f"Failed to fetch keys metrics in batches due to an unexpected error: {e}") from e
 
     def fetch_daily_charts_by_period(self, calls_per_minute: int = 300) -> None:
         """
@@ -635,7 +685,11 @@ class StockService:
                     time.sleep(sleep_time)
 
         except SQLAlchemyError as db_error:
-            raise ValueError("Database error occurred while fetching stock symbols.") from db_error
+            raise ValueError(
+                "Database error occurred while fetching daily charts by period.") from db_error
+        except Exception as e:
+            raise RuntimeError(
+                f"Failed to fetch daily charts by period due to an unexpected error: {e}") from e
 
     def fetch_daily_chart_updating(self, calls_per_minute: int = 1000):
         """
