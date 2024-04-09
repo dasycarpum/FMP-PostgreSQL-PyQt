@@ -13,11 +13,12 @@ import os
 from PyQt6.QtWidgets import (QMainWindow, QMenu, QInputDialog, QLineEdit,
     QMessageBox, QApplication)
 from PyQt6.QtGui import QDesktopServices, QCursor
-from PyQt6.QtCore import QUrl, Qt
+from PyQt6.QtCore import QUrl, Qt, QThread
 from src.models.base import Session
 from src.business_logic.fmp.database_process import DBService, StockService
 from src.business_logic.fmp.database_reporting import StockReporting
 import src.ui.main_window_UI as window
+from src.ui.worker import Worker
 
 
 class MainWindow(QMainWindow, window.Ui_MainWindow):
@@ -58,6 +59,7 @@ class MainWindow(QMainWindow, window.Ui_MainWindow):
         self.db_session = Session()
         self.stock_service = StockService(self.db_session)
         self.stock_reporting = StockReporting(self.db_session)
+        self.worker = None
 
         self.setup_signal_connections()
 
@@ -66,7 +68,8 @@ class MainWindow(QMainWindow, window.Ui_MainWindow):
         self.action_postgresql_install.triggered.connect(self.set_pdf_to_open)
         self.action_postgresql_update.triggered.connect(self.set_pdf_to_open)
         self.action_timescaledb_install.triggered.connect(self.set_pdf_to_open)
-        self.action_create_new_database.triggered.connect(self.setup_new_database)
+        self.action_create_new_database.triggered.connect(
+            self.setup_new_database)
         self.action_create_tables.triggered.connect(self.setup_stock_tables)
         self.action_fetch_stock_symbols.triggered.connect(self.fetch_fmp_data)
         self.action_fetch_stoxx_europe.triggered.connect(self.fetch_fmp_data)
@@ -74,6 +77,8 @@ class MainWindow(QMainWindow, window.Ui_MainWindow):
         self.action_fetch_dividend.triggered.connect(self.fetch_fmp_data)
         self.action_fetch_key_metrics.triggered.connect(self.fetch_fmp_data)
         self.action_fetch_daily_chart.triggered.connect(self.fetch_fmp_data)
+        self.stock_service.update_signal.connect(
+            self.update_text_browser_process)
 
     def set_pdf_to_open(self):
         """
@@ -302,23 +307,33 @@ class MainWindow(QMainWindow, window.Ui_MainWindow):
         except RuntimeError as e:
             QMessageBox.critical(self, "Error", str(e))
 
-    def fetch_fmp_data(self):
-        """Fetches initial FMP data based on the action initiated by the user.
+    def fetch_fmp_data(self) -> None:
+        """
+        Initiates the process to fetch financial market data based on the 
+        selected action.
 
-        This method sets the cursor to an hourglass, indicating a process is 
-        ongoing, then performs a specific action based on the text of the 
-        action triggered by the sender. After the action is performed, it 
-        updates the performance report. If no action is associated with the 
-        sender or if any unexpected error occurs, it shows an error message.
+        This method retrieves the action initiated by the user, creates a new 
+        background thread, and a worker object tasked with carrying out the 
+        selected financial market data operation. The operation is executed in 
+        a background thread to keep the UI responsive. It handles any errors 
+        that occur during the setup and communicates back to the main UI thread 
+        about the success or failure of the operation. Upon completion, it 
+        updates the UI to reflect that the operation has finished.
+
+        Args:
+            None.
 
         Raises:
-            AttributeError: If no action is associated with the sender of the action. 
-            Exception: For any unexpected errors during the fetch process.
+            AttributeError: If no action is associated with the sender, 
+            indicating an issue with how the action was triggered.
+
+        Note:
+            This method connects several signals and slots to manage the 
+            thread's lifecycle and to update the UI based on the worker's 
+            progress and completion status. It also ensures the application's 
+            cursor is set to indicate a loading state while the operation is ongoing.
 
         """
-        # Set the mouse cursor to hourglass
-        QApplication.setOverrideCursor(QCursor(Qt.CursorShape.WaitCursor))
-
         try:
             action = self.sender()
             if action is None:
@@ -326,27 +341,72 @@ class MainWindow(QMainWindow, window.Ui_MainWindow):
 
             action_text = action.text()
 
-            if action_text == "Stock symbols":
-                self.stock_service.fetch_stock_symbols()
-            elif action_text == "Company profile":
-                self.stock_service.fetch_company_profiles()
-            elif action_text == "STOXX Europe 600":
-                self.stock_service.fetch_sxxp_historical_components('20240301')
-            elif action_text == "Dividend":
-                self.stock_service.fetch_dividends_in_batches()
-            elif action_text == "Key metrics":
-                self.stock_service.fetch_keys_metrics_in_batches()
-            elif action_text == "Daily chart":
-                self.stock_service.fetch_daily_charts_by_period()
+            self.thread = QThread()  # Create a QThread object
+            self.worker = Worker(self.stock_service, action_text)  # Create a worker
 
-            # Show a success message to the user
-            QMessageBox.information(self, "Success", "FMP data fetched successfully!")
+            # Move the worker to the thread
+            self.worker.moveToThread(self.thread)
 
-            # Display the latest performance data for all tables
-            self.update_performance_report()
+            # Connect signals and slots
+            self.thread.started.connect(self.worker.run_fetch_fmp_data)
+            self.worker.finished.connect(self.thread.quit)  # Clean up the thread when done
+            self.worker.finished.connect(self.worker.deleteLater)
+            self.thread.finished.connect(self.thread.deleteLater)
 
-        except Exception as e: # pylint: disable=broad-except
-            QMessageBox.critical(self, "Error",
-            f"Failed to fetch FMP {action_text} data due to an unexpected error: {e}")
-        finally:
+            # Connect to restore cursor
+            self.worker.finished.connect(lambda: QApplication.restoreOverrideCursor()) # pylint: disable=W0108
+
+            # Connect to show success message
+            self.worker.finished.connect(self.show_success_message)
+
+            # Connect the worker's update signal to update the text browser
+            self.worker.update_signal.connect(self.update_text_browser_process)
+
+            # Start the thread
+            self.thread.start()
+
+            # Change cursor to indicate processing
+            QApplication.setOverrideCursor(QCursor(Qt.CursorShape.WaitCursor))
+
+        except Exception as e:  # pylint: disable=broad-except
+            # Log the error, show an error message, or both
+            QMessageBox.critical(self, "Error", f"An error occurred: {str(e)}")
             QApplication.restoreOverrideCursor()
+
+    def update_text_browser_process(self, message: str) -> None:
+        """
+        Appends a given message to the QTextBrowser widget.
+
+        This method is primarily used as a slot connected to signals that emit
+        messages indicating the progress or result of background operations. It
+        updates the QTextBrowser in the main GUI to display messages in 
+        real-time, allowing users to track the progress of tasks or see 
+        informational messages as they are generated.
+
+        Args:
+            message (str): The message to be displayed in the QTextBrowser. 
+            This could be any text, including status updates, error messages, 
+            or results from operations performed by background threads or other 
+            parts of the application.
+
+        """
+        self.textBrowser_process.append(message)
+    
+    def show_success_message(self, message: str) -> None:
+        """
+        Displays a success message in a QMessageBox.
+
+        This function is called upon the successful completion of a background 
+        task, such as fetching data or processing information. The message is 
+        intended to be dynamic, reflecting the specific action that was 
+        completed, providing the user with feedback about the task that was 
+        executed.
+
+        Args:
+            message (str): The success message to be displayed. This message is 
+            expected to be passed from the signal emitted by the Worker class 
+            upon the completion of its task, and it can be customized to 
+            reflect the specifics of the completed action.
+
+        """
+        QMessageBox.information(self, "Success", message)

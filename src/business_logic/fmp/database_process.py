@@ -20,6 +20,7 @@ from dotenv import load_dotenv
 from sqlalchemy import func, desc
 from sqlalchemy.orm import aliased
 from sqlalchemy.exc import SQLAlchemyError
+from PyQt6.QtCore import QObject, pyqtSignal
 from src.models.base import Session
 from src.models.fmp.stock import StockSymbol, DailyChartEOD, HistoricalDividend
 from src.services.api import get_jsonparsed_data
@@ -87,8 +88,9 @@ class DBService:
                 f"Failed to create a database due to an unexpected error: {e}") from e
 
 
-class StockService:
+class StockService(QObject):
     """Service class for managing stock operations."""
+    update_signal = pyqtSignal(str)  # Define a signal to emit messages
 
     def __init__(self, db_session: Session):
         """
@@ -97,6 +99,7 @@ class StockService:
         Args:
             db_session (Session): The database session for performing operations.
         """
+        super().__init__()  # Initialize the QObject
         self.db_session = db_session
 
     def create_stock_tables(self) -> None:
@@ -301,6 +304,10 @@ class StockService:
                 data = csv.reader(csvfile)
                 # Inserting data into the database
                 for row in data:
+                    timestamp = datetime.now().strftime("%H:%M:%S")
+                    self.update_signal.emit(
+                        f"Fetch company profiles at {timestamp} -> processing {row[0]} ..."
+                    ) # Emit signal with message
                     self.fetch_company_profiles_for_exchange(row[0])
 
         except SQLAlchemyError as e:
