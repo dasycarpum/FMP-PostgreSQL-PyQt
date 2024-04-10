@@ -369,8 +369,8 @@ class StockManager:
 		                vol_avg=item.get("volAvg"),
 		                mkt_cap=item.get("mktCap"),
                         currency=item.get("currency"),
-                        cik=str(item.get("cik")),  # convert to string
-                        isin=item.get("isin"),
+                        cik=str(item.get("cik")),  # Convert to string
+                        isin = item.get("isin").strip() if item.get("isin") is not None else None, # Deleting superfluous characters such as'\t'
                         cusip=str(item.get("cusip")),  # Same as cik
                         industry=item.get("industry"),
                         website=item.get("website"),

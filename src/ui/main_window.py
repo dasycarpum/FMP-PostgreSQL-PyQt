@@ -391,7 +391,7 @@ class MainWindow(QMainWindow, window.Ui_MainWindow):
 
         """
         self.textBrowser_process.append(message)
-    
+
     def show_success_message(self, message: str) -> None:
         """
         Displays a success message in a QMessageBox.

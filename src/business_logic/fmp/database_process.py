@@ -209,6 +209,11 @@ class StockService(QObject):
             # Initialize StockManager with the database session
             stock_manager = StockManager(self.db_session)
 
+            timestamp = datetime.now().strftime("%H:%M:%S")
+            self.update_signal.emit(
+                f"Fetch stock symbols at {timestamp} -> processing..."
+            ) # Emit signal with message
+
             # Data recovery
             data = get_jsonparsed_data(f"https://financialmodelingprep.com/api/v3/stock/list?apikey={API_KEY_FMP}") # pylint: disable=line-too-long
 
@@ -477,6 +482,11 @@ class StockService(QObject):
             # Open the CSV file and read data
             with open(file_path, 'r', encoding='utf8') as csvfile:
                 data = csv.DictReader(csvfile, delimiter=';')
+                # Emit signal with message
+                timestamp = datetime.now().strftime("%H:%M:%S")
+                self.update_signal.emit(
+                   f"Fetch STOXX Europe 600 components at {timestamp} -> processing {date_str} CSV file..." # pylint: disable=line-too-long
+                )
                 # Inserting data into the database
                 stock_manager.insert_sxxp_historical_components(data)
 
@@ -531,10 +541,17 @@ class StockService(QObject):
                 raise ValueError("Failed to fetch stock symbols from the database.")
 
             symbols = [symbol[0] for symbol in stock_symbol_query]
+            batch_tot = int(len(symbols)/batch_size) + 1
+            batch_n = 1
 
             for i in range(0, len(symbols), batch_size):
                 batch = symbols[i:i + batch_size]
-
+                # Emit signal with message
+                timestamp = datetime.now().strftime("%H:%M:%S")
+                self.update_signal.emit(
+                    f"Fetch dividends at {timestamp} -> processing batch {batch_n} / {batch_tot}..."
+                )
+                batch_n += 1
                 for symbol in batch:
                     # pylint: disable=broad-except
                     try:
@@ -601,10 +618,17 @@ class StockService(QObject):
                 raise ValueError("Failed to fetch stock symbols from the database.")
 
             symbols = [symbol[0] for symbol in stock_symbol_query]
+            batch_tot = int(len(symbols)/batch_size) + 1
+            batch_n = 1
 
             for i in range(0, len(symbols), batch_size):
                 batch = symbols[i:i + batch_size]
-
+                # Emit signal with message
+                timestamp = datetime.now().strftime("%H:%M:%S")
+                self.update_signal.emit(
+                    f"Fetch key metrics at {timestamp} -> processing batch {batch_n} / {batch_tot}..." # pylint: disable=line-too-long
+                )
+                batch_n += 1
                 for symbol in batch:
                     # pylint: disable=broad-except
                     try:
@@ -670,8 +694,15 @@ class StockService(QObject):
                 raise ValueError("Failed to fetch stock symbols from the database.")
 
             symbols = [symbol[0] for symbol in stock_symbol_query]
-
+            symbol_tot = len(symbols)
+            symbol_n = 1
             for symbol in symbols:
+                # Emit signal with message
+                timestamp = datetime.now().strftime("%H:%M:%S")
+                self.update_signal.emit(
+                    f"Fetch daily chart at {timestamp} -> processing {symbol} : {symbol_n} / {symbol_tot}..."# pylint: disable=line-too-long
+                )
+                symbol_n += 1
                 current_start_date = start_date
                 while current_start_date < end_date:
                     current_end_date = min(
