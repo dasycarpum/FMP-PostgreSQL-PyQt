@@ -77,6 +77,11 @@ class MainWindow(QMainWindow, window.Ui_MainWindow):
         self.action_fetch_dividend.triggered.connect(self.fetch_fmp_data)
         self.action_fetch_key_metrics.triggered.connect(self.fetch_fmp_data)
         self.action_fetch_daily_chart.triggered.connect(self.fetch_fmp_data)
+        self.action_update_stoxx_europe.triggered.connect(self.fetch_fmp_data)
+        self.action_update_dividend.triggered.connect(self.fetch_fmp_data)
+        self.action_update_key_metrics.triggered.connect(self.fetch_fmp_data)
+        self.action_update_daily_chart.triggered.connect(self.fetch_fmp_data)
+
         self.stock_service.update_signal.connect(
             self.update_text_browser_process)
 
@@ -339,10 +344,24 @@ class MainWindow(QMainWindow, window.Ui_MainWindow):
             if action is None:
                 raise AttributeError("No action associated with the sender.")
 
+            associated_objects = action.associatedObjects()
+            if associated_objects is None:
+                raise AttributeError("No associated objects found.")
+
+            parent_menu = None
+            for ass_object in associated_objects:
+                if isinstance(ass_object, QMenu):
+                    parent_menu = ass_object
+                    break
+
+            if parent_menu is None:
+                raise ValueError("No parent QMenu found among associated objects.")
+
             action_text = action.text()
+            menu_text = parent_menu.title()
 
             self.thread = QThread()  # Create a QThread object
-            self.worker = Worker(self.stock_service, action_text)  # Create a worker
+            self.worker = Worker(self.stock_service, menu_text, action_text)  # Create a worker
 
             # Move the worker to the thread
             self.worker.moveToThread(self.thread)

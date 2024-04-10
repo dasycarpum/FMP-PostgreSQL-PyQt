@@ -563,7 +563,6 @@ class StockService(QObject):
                 # Calculate and respect the rate limit
                 if i + batch_size < len(symbols):  # Check if there's another batch
                     sleep_time = 60 * batch_size / calls_per_minute
-                    print(f"Sleeping for {sleep_time:.2f} seconds to respect rate limit...")
                     time.sleep(sleep_time)
 
         except SQLAlchemyError as db_error:
@@ -640,7 +639,6 @@ class StockService(QObject):
                 # Calculate and respect the rate limit
                 if i + batch_size < len(symbols):  # Check if there's another batch
                     sleep_time = 60 * batch_size / calls_per_minute
-                    print(f"Sleeping for {sleep_time:.2f} seconds to respect rate limit...")
                     time.sleep(sleep_time)
 
         except SQLAlchemyError as db_error:
@@ -719,7 +717,6 @@ class StockService(QObject):
 
                     # Respect the rate limit after each call
                     sleep_time = 60 / calls_per_minute
-                    print(f"Sleeping for {sleep_time:.2f} seconds to respect rate limit...")
                     time.sleep(sleep_time)
 
         except SQLAlchemyError as db_error:
@@ -771,7 +768,8 @@ class StockService(QObject):
         except SQLAlchemyError as e:
             raise ValueError(f"Failed to fetch data from database: {e}") from e
 
-        i = 1
+        symbol_tot = len(most_recent_dates)
+        symbol_n = 1
         for _, symbol, most_recent_date in most_recent_dates:
             try:
                 if most_recent_date is not None:
@@ -785,18 +783,22 @@ class StockService(QObject):
                     # date or another) if no recent date exists
                     start_date = end_date - timedelta(days=365)  # arbitrary start date
 
+                # Emit signal with message
+                timestamp = datetime.now().strftime("%H:%M:%S")
+                start_date_str = start_date.strftime('%Y-%m-%d')
+                end_date_str = end_date.strftime('%Y-%m-%d')
+                self.update_signal.emit(
+                    f"Update daily chart at {timestamp} -> processing {symbol} from {start_date_str} to {end_date_str} : {symbol_n} / {symbol_tot}..."# pylint: disable=line-too-long
+                )
+                symbol_n += 1
+
                 # Convert dates to string format for fetch_daily_chart_for_period`
                 self.fetch_daily_chart_for_period(
-                    symbol,
-                    start_date.strftime('%Y-%m-%d'),
-                    end_date.strftime('%Y-%m-%d')
-                )
+                    symbol,start_date_str, end_date_str)
 
                 # Respect the rate limit after each call
                 sleep_time = 60 / calls_per_minute
-                print(f"{i} : {symbol} from {start_date} to {end_date}. Sleeping for {sleep_time:.2f} seconds.") # pylint: disable=line-too-long
                 time.sleep(sleep_time)
-                i = i+1
 
             except SQLAlchemyError as e:
                 print(f"Database error updating data for {symbol}: {e}")

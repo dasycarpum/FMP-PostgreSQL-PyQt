@@ -28,17 +28,19 @@ class Worker(QObject):
     finished = pyqtSignal(str)  # Signal to indicate the task is done
     update_signal = pyqtSignal(str)  # To emit messages
 
-    def __init__(self, stock_service, action):
+    def __init__(self, stock_service, menu, action):
         """
         Initializes the Worker object with a stock service instance and a specified action.
 
         Args:
             stock_service: The stock service instance to perform database operations.
+            menu (str): The specific menu of the action.
             action (str): The specific action to be performed by the worker.
 
         """
         super().__init__()
         self.stock_service = stock_service
+        self.menu = menu
         self.action = action
 
     def run_fetch_fmp_data(self):
@@ -61,18 +63,23 @@ class Worker(QObject):
         
         """
         try:
-            if self.action == "Stock symbols":
-                self.stock_service.fetch_stock_symbols()
-            elif self.action == "Company profile":
-                self.stock_service.fetch_company_profiles()
-            elif self.action == "STOXX Europe 600":
-                self.stock_service.fetch_sxxp_historical_components('20240301')
-            elif self.action == "Dividend":
-                self.stock_service.fetch_dividends_in_batches()
-            elif self.action == "Key metrics":
-                self.stock_service.fetch_keys_metrics_in_batches()
-            elif self.action == "Daily chart":
-                self.stock_service.fetch_daily_charts_by_period()
+            if self.menu == "Fetch initial data":
+                if self.action == "Stock symbols":
+                    self.stock_service.fetch_stock_symbols()
+                elif self.action == "Company profile":
+                    self.stock_service.fetch_company_profiles()
+                elif self.action == "STOXX Europe 600":
+                    self.stock_service.fetch_sxxp_historical_components('20240301')
+                elif self.action == "Dividend":
+                    self.stock_service.fetch_dividends_in_batches()
+                elif self.action == "Key metrics":
+                    self.stock_service.fetch_keys_metrics_in_batches()
+                elif self.action == "Daily chart":
+                    self.stock_service.fetch_daily_charts_by_period()
+            elif self.menu == "Update time data":
+                if self.action == "Daily chart":
+                    self.stock_service.fetch_daily_chart_updating()
+
         except Exception as e: # pylint: disable=broad-except
             # Optionally, log the exception or emit it using update_signal
             self.update_signal.emit(f"Error during '{self.action}': {str(e)}")
