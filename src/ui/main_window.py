@@ -61,6 +61,7 @@ class MainWindow(QMainWindow, window.Ui_MainWindow):
         self.stock_reporting = StockReporting(self.db_session)
         self.worker = None
 
+        self.setup_reporting()
         self.setup_signal_connections()
 
     def setup_signal_connections(self):
@@ -81,7 +82,9 @@ class MainWindow(QMainWindow, window.Ui_MainWindow):
         self.action_update_dividend.triggered.connect(self.fetch_fmp_data)
         self.action_update_key_metrics.triggered.connect(self.fetch_fmp_data)
         self.action_update_daily_chart.triggered.connect(self.fetch_fmp_data)
-
+        self.comboBox_reporting.currentTextChanged.connect(
+            self.choice_reporting)
+        self.comboBox_reporting.textHighlighted.connect(self.help_reporting)
         self.stock_service.update_signal.connect(
             self.update_text_browser_process)
 
@@ -265,7 +268,7 @@ class MainWindow(QMainWindow, window.Ui_MainWindow):
 
             self.stock_service.create_business_time_series()
 
-            self.update_performance_report()
+            self.display_performance_all_tables()
 
             # Show a success message to the user
             QMessageBox.information(self, "Success", "Stock tables created successfully!")
@@ -275,42 +278,6 @@ class MainWindow(QMainWindow, window.Ui_MainWindow):
             f"Failed to create stock tables due to an unexpected error: {e}")
         finally:
             QApplication.restoreOverrideCursor()
-
-    def update_performance_report(self):
-        """
-        Updates the QTextBrowser with the latest performance data for each table.
-
-        This function retrieves the latest performance data for each table in 
-        the database by calling `report_on_tables_performance` from the 
-        `stock_reporting` object. It formats this data into HTML and displays 
-        it in a QTextBrowser widget within the GUI. The performance data 
-        includes the timestamp of the report, the table name, whether the table 
-        is a hypertable, the execution time for queries on the table, and the 
-        disk size used by the table.
-
-        Raises:
-            RuntimeError: If an error occurs while retrieving the performance 
-            data or while formatting it for display. The error message is shown 
-            to the user in a message box.
-
-        """
-        try:
-            performance_data = self.stock_reporting.report_on_tables_performance()
-            report_html = "<html><head><title>Table Performance Report</title></head><body>"
-            report_html += "<h2>Table Performance Report</h2>"
-            report_html += "<table border='1'><tr><th>Timestamp</th><th>Table Name</th><th>Hypertable</th><th>Execution Time (s)</th><th>Disk Size (bytes)</th></tr>" # pylint: disable=line-too-long
-
-            for record in performance_data:
-                timestamp, table_name, hypertable, execution_time, disk_size = record
-                formatted_timestamp = timestamp.strftime("%Y-%m-%d %H:%M:%S")
-                report_html += f"<tr><td>{formatted_timestamp}</td><td>{table_name}</td><td>{hypertable}</td><td>{execution_time}</td><td>{disk_size}</td></tr>" # pylint: disable=line-too-long
-
-            report_html += "</table></body></html>"
-            self.textBrowser_tables.setHtml(report_html)
-            self.tabWidget_reporting.setCurrentIndex(1)
-
-        except RuntimeError as e:
-            QMessageBox.critical(self, "Error", str(e))
 
     def fetch_fmp_data(self) -> None:
         """
@@ -429,3 +396,119 @@ class MainWindow(QMainWindow, window.Ui_MainWindow):
 
         """
         QMessageBox.information(self, "Success", message)
+
+    def setup_reporting(self):
+        """Initializes the reporting section of the UI.
+
+        This method populates the reporting combo box with a predefined list of 
+        tables available for reporting from the `stock_reporting` service. It 
+        ensures the user has a clear set of options for generating reports, 
+        including an option to generate reports for all tables. The method 
+        begins by inserting a placeholder item at the beginning of the combo 
+        box to prompt the user to make a selection, followed by an option to 
+        select all tables for a comprehensive report.
+
+        """
+        table_list = self.stock_reporting.table_list.copy()
+        # Insert a prompt for the user at the start of the list
+        table_list.insert(0, "------ Choice a table ------")
+        # Insert an option to select all tables for reporting
+        table_list.insert(1, "All tables")
+
+        # Populate the combo box with the updated table list
+        self.comboBox_reporting.addItems(table_list)
+
+    def help_reporting(self, highlighted_text):
+        """Updates the information text field based on the user's highlighted selection.
+
+        This function provides immediate, contextual help to the user by 
+        displaying a descriptive text message in a designated text field. When 
+        the user highlights an option in the reporting combo box, this function 
+        is triggered and updates the text field with a helpful message relevant 
+        to the highlighted option. Otherwise, it clears the text field.
+
+        Args:
+            highlighted_text (str): The text that is currently highlighted by 
+            the user in the combo box.
+
+        """
+
+        if highlighted_text == "All tables":
+            self.lineEdit_reporting.setText(
+                "Generate a performance report for each table in the database")
+        else:
+            self.lineEdit_reporting.clear()
+
+    def choice_reporting(self, current_text):
+        """Handles the user's choice from the reporting options combo box.
+
+        When a user selects an option from the reporting combo box, this method
+        is invoked to process the selection. This method sets the application's
+        cursor to an hourglass (indicating a process is running), attempts to 
+        generate the requested report, and ensures the cursor is restored 
+        afterward. If an error occurs during report generation, an error 
+        message will be displayed to the user.
+
+        Args:
+            current_text (str): The currently selected text from the combo box, 
+            which indicates the user's choice of report to generate.
+
+        Raises:
+            Exception: Re-raises any exception that occurs during the report 
+            generation process after displaying an error message to the user. 
+            This allows for higher-level error handling or logging.
+
+        """
+        # Set the mouse cursor to hourglass
+        QApplication.setOverrideCursor(QCursor(Qt.CursorShape.WaitCursor))
+
+        try:
+            if current_text == "All tables":
+                self.display_performance_all_tables()
+
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                "Error", f"An error occurred while generating the report : {e}. Please try again.")
+            # Log the exception and show an error message
+            raise(f"Error during reporting: {e}") from e
+
+        finally:
+            # Restore the mouse cursor to its default state
+            QApplication.restoreOverrideCursor()
+
+    def display_performance_all_tables(self):
+        """
+        Updates the QTextBrowser with the latest performance data for each table.
+
+        This function retrieves the latest performance data for each table in 
+        the database by calling `report_on_tables_performance` from the 
+        `stock_reporting` object. It formats this data into HTML and displays 
+        it in a QTextBrowser widget within the GUI. The performance data 
+        includes the timestamp of the report, the table name, whether the table 
+        is a hypertable, the execution time for queries on the table, and the 
+        disk size used by the table.
+
+        Raises:
+            RuntimeError: If an error occurs while retrieving the performance 
+            data or while formatting it for display. The error message is shown 
+            to the user in a message box.
+
+        """
+        try:
+            performance_data = self.stock_reporting.report_on_tables_performance()
+            report_html = "<html><head><title>Table Performance Report</title></head><body>"
+            report_html += "<h2>Table Performance Report</h2>"
+            report_html += "<table border='1'><tr><th>Timestamp</th><th>Table Name</th><th>Hypertable</th><th>Execution Time (s)</th><th>Disk Size (bytes)</th></tr>" # pylint: disable=line-too-long
+
+            for record in performance_data:
+                timestamp, table_name, hypertable, execution_time, disk_size = record
+                formatted_timestamp = timestamp.strftime("%Y-%m-%d %H:%M:%S")
+                report_html += f"<tr><td>{formatted_timestamp}</td><td>{table_name}</td><td>{hypertable}</td><td>{execution_time}</td><td>{disk_size}</td></tr>" # pylint: disable=line-too-long
+
+            report_html += "</table></body></html>"
+            self.textBrowser_tables.setHtml(report_html)
+            self.tabWidget_reporting.setCurrentIndex(1)
+
+        except RuntimeError as e:
+            QMessageBox.critical(self, "Error", str(e))

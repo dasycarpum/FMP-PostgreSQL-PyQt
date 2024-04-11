@@ -29,6 +29,8 @@ class StockReporting:
             db_session (Session): The database session for performing operations.
         """
         self.db_session = db_session
+        self.stock_query = StockQuery(self.db_session)
+        self.table_list = self.stock_query.get_list_of_tables()
 
     def report_stocksymbol_table(self) -> None:
         """
@@ -57,12 +59,10 @@ class StockReporting:
 
         """
         try:
-            stock_query = StockQuery(self.db_session)
-
             columns = ['exchange', 'type_']
 
             for column in columns:
-                df = stock_query.get_stocksymbols_by_column(column)
+                df = self.stock_query.get_stocksymbols_by_column(column)
 
                 # Fill missing 'exchange' values with 'Unknown'
                 df[column] = df[column].fillna('Unknown')
@@ -110,12 +110,10 @@ class StockReporting:
 
         """
         try:
-            stock_query = StockQuery(self.db_session)
-
             columns = ['currency', 'sector', 'country']
 
             for column in columns:
-                df = stock_query.get_companyprofiles_by_column(column)
+                df = self.stock_query.get_companyprofiles_by_column(column)
 
                 # Fill missing 'exchange' values with 'Unknown'
                 df[column] = df[column].fillna('Unknown')
@@ -168,10 +166,8 @@ class StockReporting:
 
         """
         try:
-            stock_query = StockQuery(self.db_session)
-
             # Retrieve DataFrame with STOXX Europe 600 index company profiles.
-            df = stock_query.get_sxxp_by_company_profile()
+            df = self.stock_query.get_sxxp_by_company_profile()
 
             # Plotting distributions of beta, vol_avg, and mkt_cap for the retrieved companies.
             plot.plot_distributions(df, ['beta', 'vol_avg', 'mkt_cap'],
@@ -233,10 +229,8 @@ class StockReporting:
 
         """
         try:
-            stock_query = StockQuery(self.db_session)
-
             # Retrieves a list of stock_ids that have not been updated to the latest date
-            df_update = stock_query.get_dailychart_missing_update()
+            df_update = self.stock_query.get_dailychart_missing_update()
             print(df_update)
 
             # Retrieves a list of stock_ids which has at least one null value in the columns
@@ -245,7 +239,7 @@ class StockReporting:
                        'unadjusted_volume', 'vwap']
 
             for column in columns:
-                df = stock_query.get_table_missing_value_by_column('dailychart', column)
+                df = self.stock_query.get_table_missing_value_by_column('dailychart', column)
                 df['column_name'] = column
                 df_zero = pd.concat([df_zero, df], ignore_index=True)
 
@@ -262,7 +256,7 @@ class StockReporting:
 
             # Retrieves dates within the last year for which there are no daily
             # chart records for the specified stock
-            df_gap = stock_query.get_dailychart_finding_gap_by_stock(21412)
+            df_gap = self.stock_query.get_dailychart_finding_gap_by_stock(21412)
             print(df_gap)
 
         except SQLAlchemyError as e:
@@ -296,14 +290,12 @@ class StockReporting:
 
         """
         try:
-            stock_query = StockQuery(self.db_session)
-
             # Retrieves a list of stock_ids which has at least one null value in the columns
             df_zero = pd.DataFrame()
             columns = ['adj_dividend', 'dividend']
 
             for column in columns:
-                df = stock_query.get_table_missing_value_by_column('dividend', column)
+                df = self.stock_query.get_table_missing_value_by_column('dividend', column)
                 df['column_name'] = column
                 df_zero = pd.concat([df_zero, df], ignore_index=True)
 
@@ -318,7 +310,7 @@ class StockReporting:
             print(df_zero_by_column.sort_values('zero_column_count'))
 
             # Retrieves the most recent date by stock_id
-            df_max_date = stock_query.get_table_date('dividend')
+            df_max_date = self.stock_query.get_table_date('dividend')
             plot.plot_distributions(df_max_date, ['max_date'])
 
         except SQLAlchemyError as e:
@@ -352,15 +344,13 @@ class StockReporting:
 
         """
         try:
-            stock_query = StockQuery(self.db_session)
-
             # Retrieves a list of stock_ids which has at least one null value in the columns
             df_zero = pd.DataFrame()
 
-            columns = stock_query.get_keymetrics_columns()
+            columns = self.stock_query.get_keymetrics_columns()
 
             for column in columns[5:]:
-                df = stock_query.get_table_missing_value_by_column('keymetrics', column)
+                df = self.stock_query.get_table_missing_value_by_column('keymetrics', column)
                 df['column_name'] = column
                 df_zero = pd.concat([df_zero, df], ignore_index=True)
             print(df_zero.sort_values('is_actively_trading'))
@@ -377,7 +367,7 @@ class StockReporting:
             print(df_zero_by_column.sort_values('zero_column_count'))
 
             # Retrieves the most recent date by stock_id
-            df_max_date = stock_query.get_table_date('keymetrics')
+            df_max_date = self.stock_query.get_table_date('keymetrics')
             plot.plot_distributions(df_max_date, ['max_date'])
 
         except SQLAlchemyError as e:
@@ -414,12 +404,10 @@ class StockReporting:
 
         """
         try:
-            stock_query = StockQuery(self.db_session)
-            table_list = stock_query.get_list_of_tables()
             performance_data = []
 
-            for table in table_list:
-                result = stock_query.get_table_performance(table)
+            for table in self.table_list:
+                result = self.stock_query.get_table_performance(table)
                 performance_data.append(result)
 
             return performance_data

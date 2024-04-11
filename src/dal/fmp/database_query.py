@@ -716,7 +716,7 @@ class StockQuery:
             start_time = time.time()
 
             query_rt = text(f"""
-            SELECT * FROM {table_name}
+            SELECT * FROM {table_name} TABLESAMPLE BERNOULLI (1)  -- 1% of table
             """)
             result_rt = self.db_session.execute(query_rt) # pylint: disable=unused-variable
 
