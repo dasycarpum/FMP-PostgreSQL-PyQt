@@ -9,8 +9,10 @@ Created on 2024-03-15
 
 """
 
+import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 import seaborn as sns
 import squarify
 
@@ -58,8 +60,8 @@ def plot_boxplots(df: pd.DataFrame, variables: list) -> None:
 
     plt.savefig('figure/boxplots.png')
 
-
-def plot_distributions(df: pd.DataFrame, variables: list, title: str = "") -> None:
+def plot_distributions_png(df: pd.DataFrame, variables: list,
+    title: str = "") -> None:
     """
     Generates histograms for the specified variables from the given DataFrame.
 
@@ -102,6 +104,55 @@ def plot_distributions(df: pd.DataFrame, variables: list, title: str = "") -> No
 
     # Save the figure to a file
     plt.savefig('figure/distributions.png')
+
+def plot_distributions_widget(canvas: FigureCanvasQTAgg, df: pd.DataFrame,
+    variables: list, title: str = "") -> None:
+    """
+    Generates histograms for the specified variables from the given DataFrame 
+    on the provided canvas.
+
+    Args:
+        canvas (FigureCanvasQTAgg): The canvas where the histograms will be plotted.
+        df (pandas.DataFrame): The DataFrame containing the data.
+        variables (list of str): A list of strings representing the column 
+        names for which distributions are to be generated.
+        title (str): The title of the histogram chart.
+
+    Returns:
+        None. Plots the distributions of the specified variables on the canvas.
+
+    Raises:
+        ValueError: If any of the specified variables are not found in the DataFrame.
+    """
+    # Clear the existing figure to prepare for a new plot
+    canvas.figure.clf()
+
+    # Number of variables
+    n_vars = len(variables)
+
+    # Check if all specified variables exist in the DataFrame
+    for var in variables:
+        if var not in df.columns:
+            raise ValueError(f"Variable '{var}' not found in the DataFrame.")
+
+    # Create a subplot for each variable
+    axes = canvas.figure.subplots(1, n_vars, squeeze=False).flatten()
+
+    # Display distributions for each variable
+    for i, var in enumerate(variables):
+        data = df[var].dropna()
+        axes[i].hist(data, bins=30, alpha=0.7, label=var, color='skyblue', edgecolor='black')
+        axes[i].set_title(var)
+
+    # Set a single title for the entire figure if there's a title provided
+    if title:
+        canvas.figure.suptitle(title)
+
+    # Adjust layout to make room for the figure title and ensure plots are not overlapping
+    canvas.figure.tight_layout(rect=[0, 0.03, 1, 0.95])
+
+    # Refresh the canvas with the new plot
+    canvas.draw()
 
 def display_correlation_matrix(df: pd.DataFrame, variables: list) -> None:
     """
@@ -169,7 +220,7 @@ def plot_scatterplot(df: pd.DataFrame, x_var: str, y_var: str, hue_var: str):
     # Graph display
     plt.savefig('figure/scatterplot.png')
 
-def plot_horizontal_barchart(df: pd.DataFrame, x_var: str, y_var:str,
+def plot_horizontal_barchart_png(df: pd.DataFrame, x_var: str, y_var:str,
     title: str):
     """
     Plots a horizontal bar chart from a pandas DataFrame with annotations for each bar.
@@ -218,7 +269,57 @@ def plot_horizontal_barchart(df: pd.DataFrame, x_var: str, y_var:str,
     # Save the graph display
     plt.savefig('figure/horizontal_barchart.png')
 
-def plot_treemap(df: pd.DataFrame, title: str) -> None:
+def plot_horizontal_barchart_widget(canvas: FigureCanvasQTAgg,
+    df: pd.DataFrame, x_var: str, y_var:str, title: str):
+    """
+    Plots a horizontal bar chart from a pandas DataFrame with annotations for 
+    each bar onto a provided canvas.
+
+    This function generates a horizontal bar chart for the specified columns in 
+    a pandas DataFrame directly on the given canvas. It ensures the specified 
+    columns exist in the DataFrame, creates the chart on the canvas, and 
+    annotates each bar with its value.
+
+    Args:
+        - canvas (FigureCanvasQTAgg): The canvas where the bar chart will be plotted.
+        - df (pd.DataFrame): The DataFrame containing the data to plot.
+        - x_var (str): The name of the column in df to be plotted on the 
+        x-axis. Represents the variable values of each bar.
+        - y_var (str): The name of the column in df to be plotted on the 
+        y-axis. Represents the labels of each bar.
+        - title (str): The title of the bar chart.
+    
+    Returns:
+        None
+
+    Raises:
+        - ValueError: If the specified columns (x_var or y_var) do not exist in the DataFrame.
+    """
+    # Ensure the specified columns exist in the DataFrame
+    if x_var not in df.columns or y_var not in df.columns:
+        raise ValueError(f"The DataFrame must contain the columns '{x_var}' and '{y_var}'.")
+
+    # Clear the existing figure to prepare for a new plot
+    canvas.figure.clf()
+    ax = canvas.figure.add_subplot(111)  # Create an axes instance in the figure
+
+    # Create the horizontal bar chart directly on the provided axes
+    bars = ax.barh(df[y_var], df[x_var], color='skyblue')
+
+    # Annotate each bar with its value
+    for bar_ in bars:
+        width = bar_.get_width()
+        ax.text(width, bar_.get_y() + bar_.get_height() / 2, f'{width:.0f}',
+                va='center', ha='left')  # Align text to the left (inside the bar)
+
+    ax.set_xlabel(x_var)
+    ax.set_ylabel(y_var)
+    ax.set_title(title)
+
+    canvas.figure.tight_layout()  # Adjust layout to prevent overlap
+    canvas.draw()  # Refresh the canvas with the new plot
+
+def plot_treemap_png(df: pd.DataFrame, title: str) -> None:
     """
     Generates and saves a treemap visualization from a pandas DataFrame.
 
@@ -260,3 +361,110 @@ def plot_treemap(df: pd.DataFrame, title: str) -> None:
 
     # Save the graph display
     plt.savefig('figure/treemap.png')
+
+def plot_treemap_widget(canvas: FigureCanvasQTAgg, df: pd.DataFrame,
+    title: str) -> None:
+    """
+    Generates a treemap visualization on a provided canvas from a pandas DataFrame.
+
+    The function assumes the DataFrame has two specific columns: the second
+    column for counts (numeric values) and the first column for labels (text
+    values). The treemap plot visualizes the proportion of counts associated
+    with each label on the specified canvas.
+
+    Args:
+        - canvas (FigureCanvasQTAgg): The canvas where the treemap will be plotted.
+        - df (pd.DataFrame): A DataFrame with two columns, where one contains
+          numeric values (counts) and the other contains corresponding labels.
+        - title (str): The title of the treemap plot.
+
+    Returns:
+        None
+    """
+    # Ensure the DataFrame has exactly two columns
+    if df.shape[1] != 2:
+        raise ValueError("DataFrame must have exactly two columns.")
+
+    # Assuming the first column contains labels and the second contains counts
+    labels = df.iloc[:, 0].tolist()
+    counts = df.iloc[:, 1].tolist()
+
+    # Concatenate labels and counts
+    labels_with_counts = [f"{label}: {count}" for label, count in zip(labels, counts)]
+
+    # Choosing a color palette with Matplotlib
+    palette = plt.cm.viridis # pylint: disable=no-member
+    colors = [palette(i / len(labels)) for i in range(len(labels))]
+
+    # Clear the existing figure to prepare for a new plot
+    canvas.figure.clf()
+
+    ax = canvas.figure.add_subplot(111)  # Create an axes instance in the figure
+
+    # Plotting the treemap
+    squarify.plot(sizes=counts, label=labels_with_counts, color=colors, alpha=0.7, ax=ax)
+
+    ax.set_title(title)
+    ax.axis('off')  # Removes the axes for a cleaner look
+
+    # Refresh the canvas with the new plot
+    canvas.draw()
+
+def plot_grouped_barchart_widget(canvas: FigureCanvasQTAgg, df: pd.DataFrame,
+    title: str):
+    """
+    Plots a grouped bar chart from a pandas DataFrame onto a provided canvas.
+    Each group (column) will have bars for 'True' and 'False' side by side.
+
+    Args:
+        - canvas (FigureCanvasQTAgg): The canvas where the bar chart will be plotted.
+        - df (pd.DataFrame): The DataFrame containing the data to plot. Each 
+        column represents a group, and each row (True/False) represents sub-categories.
+        - title (str): The title of the bar chart.
+    
+    Returns:
+        None
+    """
+    # Clear any existing plot on the canvas
+    canvas.figure.clf()
+
+    # Create an axes instance in the figure
+    ax = canvas.figure.add_subplot(111)
+
+    # Number of groups and categories
+    n_groups = len(df.columns)
+    n_categories = len(df.index)  # True and False
+
+    # Width of each bar
+    bar_width = 0.35
+
+    # Create an index for each tick position
+    indices = np.arange(n_groups)
+
+    # Plot each category
+    for i, category in enumerate(df.index):
+        # Offset index depending on the category ('True' or 'False')
+        offset = (i - n_categories / 2) * bar_width + bar_width / 2
+        values = df.loc[category]  # Extract row values for True or False
+        bars = ax.bar(indices + offset, values, width=bar_width, label=str(category))
+
+        # Annotate each bar with its value
+        for bar_ in bars:
+            height = bar_.get_height()
+            ax.annotate(f"{format(height)}",
+                        xy=(bar_.get_x() + bar_.get_width() / 2, height),
+                        xytext=(0, 3),  # 3 points vertical offset
+                        textcoords="offset points",
+                        ha='center', va='bottom')
+
+    # Set chart titles and labels
+    ax.set_xlabel('Categories')
+    ax.set_ylabel('Counts')
+    ax.set_title(title)
+    ax.set_xticks(indices)
+    ax.set_xticklabels(df.columns)
+    ax.legend(title="Boolean Value")
+
+    # Adjust layout and refresh the canvas
+    canvas.figure.tight_layout()
+    canvas.draw()

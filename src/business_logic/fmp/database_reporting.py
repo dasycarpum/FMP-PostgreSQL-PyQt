@@ -73,9 +73,9 @@ class StockReporting:
 
                 # Generate and save the plot
                 if column == columns[0]:
-                    plot.plot_horizontal_barchart(df, 'count_symbols', column, title)
+                    plot.plot_horizontal_barchart_png(df, 'count_symbols', column, title)
                 else:
-                    plot.plot_treemap(df[[column, 'count_symbols']], title)
+                    plot.plot_treemap_png(df[[column, 'count_symbols']], title)
 
         except SQLAlchemyError as e:
             raise RuntimeError(
@@ -123,7 +123,7 @@ class StockReporting:
                 title = f"Number of stock ids per {column} (Total = {str(sum_symbols)})"
 
                 # Generate and save the plot
-                plot.plot_horizontal_barchart(df, 'count_stock_ids', column, title)
+                plot.plot_horizontal_barchart_png(df, 'count_stock_ids', column, title)
 
         except SQLAlchemyError as e:
             raise RuntimeError(
@@ -132,7 +132,7 @@ class StockReporting:
             raise RuntimeError(
                 f"Failed to report companyprofile table due to an unexpected error: {e}") from e
 
-    def report_sxxp_table(self) -> None:
+    def report_sxxp_table(self, reports: dict) -> None:
         """
         Generates various plots to report on the STOXX Europe 600 index by 
         querying the company profile data.
@@ -153,7 +153,7 @@ class StockReporting:
             must be initialized with a valid database session before calling this method.
 
         Args:
-            None
+            reports (dict): 
 
         Returns:
             None
@@ -169,31 +169,51 @@ class StockReporting:
             # Retrieve DataFrame with STOXX Europe 600 index company profiles.
             df = self.stock_query.get_sxxp_by_company_profile()
 
-            # Plotting distributions of beta, vol_avg, and mkt_cap for the retrieved companies.
-            plot.plot_distributions(df, ['beta', 'vol_avg', 'mkt_cap'],
-            "STOXX Europe 600 index : distributions of 3 variables")
+            for topic, mpl_widget in reports.items():
 
-            # Creating and plotting a treemap of the number of stocks per currency.
-            df_currency = df['currency'].value_counts(sort=True).reset_index()
-            plot.plot_treemap(df_currency, "STOXX Europe 600 index : number of stocks per currency")
+                canvas = mpl_widget.canvas
 
-            # Creating and plotting a treemap of the number of stocks per sector.
-            df_sector = df['sector'].value_counts(sort=True).reset_index()
-            plot.plot_treemap(df_sector, "STOXX Europe 600 index : number of stocks per sector")
+                if topic == "Metric":
+                    # Plotting distributions of beta, vol_avg, and mkt_cap
+                    plot.plot_distributions_widget(
+                        canvas,
+                        df,
+                        ['beta', 'vol_avg', 'mkt_cap'],
+                        "STOXX Europe 600 index : distribution of 3 variables")
 
-            # Sorting the count of stocks per country and plotting a horizontal bar chart.
-            df_country = df['country'].value_counts().reset_index().sort_values(
-                by='count', ascending=True)
-            plot.plot_horizontal_barchart(
-                df_country, 'count', 'country',
-                "STOXX Europe 600 index : number of stocks per country")
+                elif topic == "Currency":
+                    # Plotting a treemap of the number of stocks per currency.
+                    df_currency = df['currency'].value_counts(sort=True).reset_index()
+                    plot.plot_treemap_widget(
+                        canvas,
+                        df_currency,
+                        "STOXX Europe 600 index : number of stocks per currency")
 
-            # Counting boolean values and preparing a DataFrame for plotting.
-            df_bool = df[['is_etf', 'is_actively_trading',
-                          'is_adr', 'is_fund']].apply(pd.Series.value_counts)
-            print(df_bool)
-            print(df[~df['is_actively_trading']])
-            print(df[df['is_fund']])
+                elif topic == "Sector":
+                    # Plotting a treemap of the number of stocks per sector.
+                    df_sector = df['sector'].value_counts(sort=True).reset_index()
+                    plot.plot_treemap_widget(
+                        canvas,
+                        df_sector,
+                        "STOXX Europe 600 index : number of stocks per sector")
+
+                elif topic == "Country":
+                    # Plotting a bar chart with the count of stocks per country
+                    df_country = df['country'].value_counts().reset_index().sort_values(
+                        by='count', ascending=True)
+                    plot.plot_horizontal_barchart_widget(
+                        canvas,
+                        df_country,
+                        'count', 'country',
+                        "STOXX Europe 600 index : number of stocks per country")
+
+                elif topic == "Type":
+                    # Counting boolean values and plotting.
+                    df_bool = df[['is_etf', 'is_actively_trading',
+                                'is_adr', 'is_fund']].apply(pd.Series.value_counts)
+                    plot.plot_grouped_barchart_widget(
+                        canvas,
+                        df_bool, "STOXX Europe 600 index : stock boolean types")
 
         except SQLAlchemyError as e:
             raise RuntimeError(
@@ -248,7 +268,7 @@ class StockReporting:
             df_zero_by_stock = df_zero[df_zero['is_actively_trading']
             ].groupby('stock_id')['zero_column_count'].sum().reset_index()
             print(df_zero_by_stock.sort_values('zero_column_count'))
-            plot.plot_distributions(df_zero_by_stock, ['zero_column_count'])
+            plot.plot_distributions_png(df_zero_by_stock, ['zero_column_count'])
 
             df_zero_by_column = df_zero[df_zero['is_actively_trading']
             ].groupby('column_name')['zero_column_count'].sum().reset_index()
@@ -311,7 +331,7 @@ class StockReporting:
 
             # Retrieves the most recent date by stock_id
             df_max_date = self.stock_query.get_table_date('dividend')
-            plot.plot_distributions(df_max_date, ['max_date'])
+            plot.plot_distributions_png(df_max_date, ['max_date'])
 
         except SQLAlchemyError as e:
             raise RuntimeError(
@@ -360,7 +380,7 @@ class StockReporting:
             df_zero_by_stock = df_zero[df_zero['is_actively_trading']
             ].groupby('stock_id')['zero_column_count'].sum().reset_index()
             print(df_zero_by_stock.sort_values('zero_column_count'))
-            plot.plot_distributions(df_zero_by_stock, ['zero_column_count'])
+            plot.plot_distributions_png(df_zero_by_stock, ['zero_column_count'])
 
             df_zero_by_column = df_zero[df_zero['is_actively_trading']
             ].groupby('column_name')['zero_column_count'].sum().reset_index()
@@ -368,7 +388,7 @@ class StockReporting:
 
             # Retrieves the most recent date by stock_id
             df_max_date = self.stock_query.get_table_date('keymetrics')
-            plot.plot_distributions(df_max_date, ['max_date'])
+            plot.plot_distributions_png(df_max_date, ['max_date'])
 
         except SQLAlchemyError as e:
             raise RuntimeError(

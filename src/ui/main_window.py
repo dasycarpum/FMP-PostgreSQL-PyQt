@@ -19,6 +19,7 @@ from src.business_logic.fmp.database_process import DBService, StockService
 from src.business_logic.fmp.database_reporting import StockReporting
 import src.ui.main_window_UI as window
 from src.ui.worker import Worker
+from src.ui.mplwidget import MplWidget
 
 
 class MainWindow(QMainWindow, window.Ui_MainWindow):
@@ -433,11 +434,16 @@ class MainWindow(QMainWindow, window.Ui_MainWindow):
 
         """
 
+        help_text = ""
+
         if highlighted_text == "All tables":
-            self.lineEdit_reporting.setText(
-                "Generate a performance report for each table in the database")
+            help_text = "Generate a performance report for each table in the database"
+        elif highlighted_text == "sxxp":
+            help_text = "Generates plots to report on the STOXX Europe 600 index components"
         else:
             self.lineEdit_reporting.clear()
+
+        self.lineEdit_reporting.setText(help_text)
 
     def choice_reporting(self, current_text):
         """Handles the user's choice from the reporting options combo box.
@@ -465,6 +471,8 @@ class MainWindow(QMainWindow, window.Ui_MainWindow):
         try:
             if current_text == "All tables":
                 self.display_performance_all_tables()
+            elif current_text == "sxxp":
+                self.display_report_sxxp_table()
 
         except Exception as e:
             QMessageBox.critical(
@@ -512,3 +520,48 @@ class MainWindow(QMainWindow, window.Ui_MainWindow):
 
         except RuntimeError as e:
             QMessageBox.critical(self, "Error", str(e))
+
+    def display_report_sxxp_table(self):
+        """
+        Generates and displays a series of report tabs for various topics.
+
+        This method creates and adds new tabs to a tab widget within the 
+        application, each tab containing a graphical representation of 
+        different topics. It handles the creation of the graphical widgets and 
+        manages the display within the user interface. If an error occurs 
+        during the generation of the reports, it will display an error message.
+
+        Raises:
+            Exception: An error dialog will pop up if an exception is caught 
+            during the generation of the report tabs.
+        """
+        try:
+            # Remove tabs above a certain index
+            index = 1
+            for i in range(self.tabWidget_reporting.count() - 1, index, -1):
+                self.tabWidget_reporting.removeTab(i)
+
+            # List of topics to report on
+            topics = ["Metric", "Currency", "Sector", "Country", "Type"]
+
+            # Create MplWidget instances
+            reports = {}
+            for topic in topics:
+                mpl_widget = MplWidget(self)
+                reports[topic] = mpl_widget
+
+            # Generate reports and pass them to the reporting handler
+            self.stock_reporting.report_sxxp_table(reports)
+
+            # Add MplWidget instances as new tabs in the reporting tab widget
+            for topic, mpl_widget in reports.items():
+                self.tabWidget_reporting.addTab(mpl_widget, f"SXXP - {topic}")
+
+            # Set the default active tab index
+            self.tabWidget_reporting.setCurrentIndex(2)
+
+        except Exception as e: # pylint: disable=broad-except
+            QMessageBox.critical(
+                self, "Error",
+                f"An error occurred while generating the report : {e}. Please try again."
+            )
