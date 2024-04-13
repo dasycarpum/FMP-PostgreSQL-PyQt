@@ -32,7 +32,7 @@ class StockReporting:
         self.stock_query = StockQuery(self.db_session)
         self.table_list = self.stock_query.get_list_of_tables()
 
-    def report_stocksymbol_table(self) -> None:
+    def report_stocksymbol_table(self, reports: dict) -> None:
         """
         Generates and saves visual reports for stock symbols categorized by 'exchange' and 'type_'.
 
@@ -49,7 +49,8 @@ class StockReporting:
             must be initialized with a valid database session before calling this method.
 
         Args:
-            None
+            reports (dict): A dictionary where the key is the name of the topic 
+            report, and the value a MplWidget to display the topic's plot.
 
         Returns:
             None
@@ -59,23 +60,26 @@ class StockReporting:
 
         """
         try:
-            columns = ['exchange', 'type_']
+            for column, mpl_widget in reports.items():
 
-            for column in columns:
+                # Data query
                 df = self.stock_query.get_stocksymbols_by_column(column)
 
-                # Fill missing 'exchange' values with 'Unknown'
+                # Fill missing values with 'Unknown'
                 df[column] = df[column].fillna('Unknown')
 
-                # Calculate the total number of symbols
-                sum_symbols = df['count_symbols'].sum()
-                title = f"Number of symbols per {column} (Total = {str(sum_symbols)})"
+                # Calculate the total number of symbols and edit title
+                sum_ = df['count_symbols'].sum()
+                title = f"Stock symbols : number / {column} - Total = {str(sum_)}"
 
-                # Generate and save the plot
-                if column == columns[0]:
-                    plot.plot_horizontal_barchart_png(df, 'count_symbols', column, title)
-                else:
-                    plot.plot_treemap_png(df[[column, 'count_symbols']], title)
+                # Plotting
+                canvas = mpl_widget.canvas
+                if column == "exchange":
+                    plot.plot_horizontal_barchart_widget(
+                        canvas, df, 'count_symbols', column, title)
+                elif column == "type_":
+                    plot.plot_treemap_widget(
+                        canvas, df[[column, 'count_symbols']], title)
 
         except SQLAlchemyError as e:
             raise RuntimeError(
@@ -84,7 +88,7 @@ class StockReporting:
             raise RuntimeError(
                 f"Failed to report stocksymbol table due to an unexpected error: {e}") from e
 
-    def report_companyprofile_table(self) -> None:
+    def report_companyprofile_table(self, reports: dict) -> None:
         """
         Generates and saves visual reports for company profiles categorized by 
         'currency', 'sector' and 'country'
@@ -100,7 +104,8 @@ class StockReporting:
             must be initialized with a valid database session before calling this method.
 
         Args:
-            None
+            reports (dict): A dictionary where the key is the name of the topic 
+            report, and the value a MplWidget to display the topic's plot.
 
         Returns:
             None
@@ -110,20 +115,21 @@ class StockReporting:
 
         """
         try:
-            columns = ['currency', 'sector', 'country']
-
-            for column in columns:
+            for column, mpl_widget in reports.items():
+                # Data query
                 df = self.stock_query.get_companyprofiles_by_column(column)
 
-                # Fill missing 'exchange' values with 'Unknown'
+                # Fill missing values with 'Unknown'
                 df[column] = df[column].fillna('Unknown')
 
-                # Calculate the total number of symbols
-                sum_symbols = df['count_stock_ids'].sum()
-                title = f"Number of stock ids per {column} (Total = {str(sum_symbols)})"
+                # Calculate the total number of stock ids and edit title
+                sum_ = df['count_stock_ids'].sum()
+                title = f"Company profiles : number / {column} - Total = {str(sum_)}"
 
-                # Generate and save the plot
-                plot.plot_horizontal_barchart_png(df, 'count_stock_ids', column, title)
+                # Plotting
+                canvas = mpl_widget.canvas
+                plot.plot_horizontal_barchart_widget(
+                    canvas, df, 'count_stock_ids', column, title)
 
         except SQLAlchemyError as e:
             raise RuntimeError(
@@ -153,7 +159,8 @@ class StockReporting:
             must be initialized with a valid database session before calling this method.
 
         Args:
-            reports (dict): 
+            reports (dict): A dictionary where the key is the name of the topic 
+            report, and the value a MplWidget to display the topic's plot.
 
         Returns:
             None
@@ -166,54 +173,38 @@ class StockReporting:
 
         """
         try:
-            # Retrieve DataFrame with STOXX Europe 600 index company profiles.
+            # Data query
             df = self.stock_query.get_sxxp_by_company_profile()
 
+            # Calculate the total number of stock ids
+            sum_ = df.shape[0]
+
+            # Plotting
             for topic, mpl_widget in reports.items():
 
+                title = (
+                    f"STOXX Europe 600 components : number / {topic.lower()} - Total = {str(sum_)}")
+
                 canvas = mpl_widget.canvas
-
                 if topic == "Metric":
-                    # Plotting distributions of beta, vol_avg, and mkt_cap
                     plot.plot_distributions_widget(
-                        canvas,
-                        df,
-                        ['beta', 'vol_avg', 'mkt_cap'],
-                        "STOXX Europe 600 index : distribution of 3 variables")
-
+                        canvas, df, ['beta', 'vol_avg', 'mkt_cap'],
+                        "STOXX Europe 600 components : distribution of 3 economic variables")
                 elif topic == "Currency":
-                    # Plotting a treemap of the number of stocks per currency.
                     df_currency = df['currency'].value_counts(sort=True).reset_index()
-                    plot.plot_treemap_widget(
-                        canvas,
-                        df_currency,
-                        "STOXX Europe 600 index : number of stocks per currency")
-
+                    plot.plot_treemap_widget(canvas, df_currency, title)
                 elif topic == "Sector":
-                    # Plotting a treemap of the number of stocks per sector.
                     df_sector = df['sector'].value_counts(sort=True).reset_index()
-                    plot.plot_treemap_widget(
-                        canvas,
-                        df_sector,
-                        "STOXX Europe 600 index : number of stocks per sector")
-
+                    plot.plot_treemap_widget(canvas, df_sector, title)
                 elif topic == "Country":
-                    # Plotting a bar chart with the count of stocks per country
                     df_country = df['country'].value_counts().reset_index().sort_values(
                         by='count', ascending=True)
-                    plot.plot_horizontal_barchart_widget(
-                        canvas,
-                        df_country,
-                        'count', 'country',
-                        "STOXX Europe 600 index : number of stocks per country")
-
+                    plot.plot_horizontal_barchart_widget(canvas, df_country,
+                    'count', 'country', title)
                 elif topic == "Type":
-                    # Counting boolean values and plotting.
                     df_bool = df[['is_etf', 'is_actively_trading',
                                 'is_adr', 'is_fund']].apply(pd.Series.value_counts)
-                    plot.plot_grouped_barchart_widget(
-                        canvas,
-                        df_bool, "STOXX Europe 600 index : stock boolean types")
+                    plot.plot_grouped_barchart_widget(canvas, df_bool, title)
 
         except SQLAlchemyError as e:
             raise RuntimeError(
@@ -222,7 +213,7 @@ class StockReporting:
             raise RuntimeError(
                 f"Failed to report sxxp table due to an unexpected error: {e}") from e
 
-    def report_dailychart_table(self) -> None:
+    def report_dailychart_table(self, reports: dict) -> None:
         """
         Reports on the status of daily chart data in the database for various stocks.
 
@@ -238,7 +229,8 @@ class StockReporting:
             must be initialized with a valid database session before calling this method.
 
         Args:
-            None
+            reports (dict): A dictionary where the key is the name of the topic 
+            report, and the value a MplWidget to display the topic's plot.
 
         Returns:
             None
@@ -249,11 +241,11 @@ class StockReporting:
 
         """
         try:
-            # Retrieves a list of stock_ids that have not been updated to the latest date
+            # Data query 1
             df_update = self.stock_query.get_dailychart_missing_update()
             print(df_update)
 
-            # Retrieves a list of stock_ids which has at least one null value in the columns
+            # Data qyery 2
             df_zero = pd.DataFrame()
             columns = ['open', 'high', 'low', 'close', 'adj_close', 'volume',
                        'unadjusted_volume', 'vwap']
@@ -263,19 +255,28 @@ class StockReporting:
                 df['column_name'] = column
                 df_zero = pd.concat([df_zero, df], ignore_index=True)
 
+            df_zero['is_actively_trading'] = df_zero[
+                'is_actively_trading'].fillna(False).astype(bool)
             print(df_zero)
 
-            df_zero_by_stock = df_zero[df_zero['is_actively_trading']
-            ].groupby('stock_id')['zero_column_count'].sum().reset_index()
+            df_zero_by_stock = df_zero[df_zero[
+                'is_actively_trading']].groupby('stock_id')['zero_column_count'].sum().reset_index()
             print(df_zero_by_stock.sort_values('zero_column_count'))
-            plot.plot_distributions_png(df_zero_by_stock, ['zero_column_count'])
+
+            # Plotting
+            for topic, mpl_widget in reports.items():
+
+                canvas = mpl_widget.canvas
+                if topic == "Null value":
+                    plot.plot_distributions_widget(canvas, df_zero_by_stock,
+                        ['zero_column_count'],
+                        "Daily chart : distribution of null values / stock")
 
             df_zero_by_column = df_zero[df_zero['is_actively_trading']
             ].groupby('column_name')['zero_column_count'].sum().reset_index()
             print(df_zero_by_column.sort_values('zero_column_count'))
 
-            # Retrieves dates within the last year for which there are no daily
-            # chart records for the specified stock
+            # Data query 3
             df_gap = self.stock_query.get_dailychart_finding_gap_by_stock(21412)
             print(df_gap)
 
@@ -286,7 +287,7 @@ class StockReporting:
             raise RuntimeError(
                 f"Failed to report dailychart table due to an unexpected error: {e}") from e
 
-    def report_dividend_table(self) -> None:
+    def report_dividend_table(self, reports: dict) -> None:
         """
         Reports on the status of dividend data in the database for various stocks.
 
@@ -299,7 +300,8 @@ class StockReporting:
             must be initialized with a valid database session before calling this method.
 
         Args:
-            None
+            reports (dict): A dictionary where the key is the name of the topic 
+            report, and the value a MplWidget to display the topic's plot.
 
         Returns:
             None
@@ -310,7 +312,7 @@ class StockReporting:
 
         """
         try:
-            # Retrieves a list of stock_ids which has at least one null value in the columns
+            # Data query 1
             df_zero = pd.DataFrame()
             columns = ['adj_dividend', 'dividend']
 
@@ -318,8 +320,6 @@ class StockReporting:
                 df = self.stock_query.get_table_missing_value_by_column('dividend', column)
                 df['column_name'] = column
                 df_zero = pd.concat([df_zero, df], ignore_index=True)
-
-            print(df_zero)
 
             df_zero_by_stock = df_zero[df_zero['is_actively_trading']
             ].groupby('stock_id')['zero_column_count'].sum().reset_index()
@@ -329,9 +329,17 @@ class StockReporting:
             ].groupby('column_name')['zero_column_count'].sum().reset_index()
             print(df_zero_by_column.sort_values('zero_column_count'))
 
-            # Retrieves the most recent date by stock_id
-            df_max_date = self.stock_query.get_table_date('dividend')
-            plot.plot_distributions_png(df_max_date, ['max_date'])
+            # Data query 2
+            df = self.stock_query.get_table_date('dividend')
+            sum_ = df.shape[0]
+
+            # Plotting
+            for topic, mpl_widget in reports.items():
+
+                canvas = mpl_widget.canvas
+                if topic == "Latest dates":
+                    plot.plot_distributions_widget(canvas, df, ['max_date'],
+                        f"Dividend : distribution of latest payment date - Total = {sum_}")
 
         except SQLAlchemyError as e:
             raise RuntimeError(
@@ -340,7 +348,7 @@ class StockReporting:
             raise RuntimeError(
                 f"Failed to report dividend table due to an unexpected error: {e}") from e
 
-    def report_keymetrics_table(self) -> None:
+    def report_keymetrics_table(self, reports: dict) -> None:
         """
         Reports on the status of key metrics data in the database for various stocks.
 
@@ -353,7 +361,8 @@ class StockReporting:
             must be initialized with a valid database session before calling this method.
 
         Args:
-            None
+            reports (dict): A dictionary where the key is the name of the topic 
+            report, and the value a MplWidget to display the topic's plot.
 
         Returns:
             None
@@ -364,7 +373,7 @@ class StockReporting:
 
         """
         try:
-            # Retrieves a list of stock_ids which has at least one null value in the columns
+            # Data query
             df_zero = pd.DataFrame()
 
             columns = self.stock_query.get_keymetrics_columns()
@@ -377,18 +386,29 @@ class StockReporting:
 
             df_zero = df_zero.dropna(subset=['is_actively_trading'])
 
-            df_zero_by_stock = df_zero[df_zero['is_actively_trading']
-            ].groupby('stock_id')['zero_column_count'].sum().reset_index()
-            print(df_zero_by_stock.sort_values('zero_column_count'))
-            plot.plot_distributions_png(df_zero_by_stock, ['zero_column_count'])
-
             df_zero_by_column = df_zero[df_zero['is_actively_trading']
             ].groupby('column_name')['zero_column_count'].sum().reset_index()
             print(df_zero_by_column.sort_values('zero_column_count'))
 
-            # Retrieves the most recent date by stock_id
-            df_max_date = self.stock_query.get_table_date('keymetrics')
-            plot.plot_distributions_png(df_max_date, ['max_date'])
+            df_zero_by_stock = df_zero[df_zero['is_actively_trading']
+            ].groupby('stock_id')['zero_column_count'].sum().reset_index()
+            print(df_zero_by_stock.sort_values('zero_column_count'))
+
+            # Data query 2
+            df = self.stock_query.get_table_date('keymetrics')
+            sum_ = df.shape[0]
+
+            # Plotting
+            for topic, mpl_widget in reports.items():
+
+                canvas = mpl_widget.canvas
+                if topic == "Latest dates":
+                    plot.plot_distributions_widget(canvas, df, ['max_date'],
+                        f"Key metrics : distribution of latest publication date - Total = {sum_}")
+                elif topic == "Null value":
+                    plot.plot_distributions_widget(canvas, df_zero_by_stock,
+                        ['zero_column_count'],
+                        "Key metrics : distribution of null values / stock")
 
         except SQLAlchemyError as e:
             raise RuntimeError(

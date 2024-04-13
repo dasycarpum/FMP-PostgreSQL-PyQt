@@ -142,7 +142,8 @@ def plot_distributions_widget(canvas: FigureCanvasQTAgg, df: pd.DataFrame,
     for i, var in enumerate(variables):
         data = df[var].dropna()
         axes[i].hist(data, bins=30, alpha=0.7, label=var, color='skyblue', edgecolor='black')
-        axes[i].set_title(var)
+        axes[i].set_ylabel("frequency")
+        axes[i].set_xlabel(var)
 
     # Set a single title for the entire figure if there's a title provided
     if title:
@@ -303,8 +304,21 @@ def plot_horizontal_barchart_widget(canvas: FigureCanvasQTAgg,
     canvas.figure.clf()
     ax = canvas.figure.add_subplot(111)  # Create an axes instance in the figure
 
+    # Sort DataFrame based on x_var in descending order
+    df_sorted = df.sort_values(by=x_var, ascending=False)
+
+    # Limit and group data
+    if len(df_sorted) > 25:
+        top_df = df_sorted.head(24)  # Get the top 19 entries
+        # Sum other entries and add as 'Miscellaneous'
+        misc_sum = df_sorted[x_var][24:].sum()
+        misc_row = pd.DataFrame({y_var: ['Miscellaneous'], x_var: [misc_sum]})
+        df_final = pd.concat([top_df, misc_row], ignore_index=True)
+    else:
+        df_final = df_sorted
+
     # Create the horizontal bar chart directly on the provided axes
-    bars = ax.barh(df[y_var], df[x_var], color='skyblue')
+    bars = ax.barh(df_final[y_var], df_final[x_var], color='skyblue')
 
     # Annotate each bar with its value
     for bar_ in bars:

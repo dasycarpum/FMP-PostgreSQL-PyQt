@@ -441,7 +441,7 @@ class MainWindow(QMainWindow, window.Ui_MainWindow):
         elif highlighted_text == "sxxp":
             help_text = "Generates plots to report on the STOXX Europe 600 index components"
         else:
-            self.lineEdit_reporting.clear()
+            help_text = f"Generates plots to report on the {highlighted_text} table"
 
         self.lineEdit_reporting.setText(help_text)
 
@@ -473,6 +473,16 @@ class MainWindow(QMainWindow, window.Ui_MainWindow):
                 self.display_performance_all_tables()
             elif current_text == "sxxp":
                 self.display_report_sxxp_table()
+            elif current_text == "dividend":
+                self.display_report_dividend_table()
+            elif current_text == "dailychart":
+                self.display_report_dailychart_table()
+            elif current_text == "stocksymbol":
+                self.display_report_stocksymbol_table()
+            elif current_text == "companyprofile":
+                self.display_report_companyprofile_table()
+            elif current_text == "keymetrics":
+                self.display_report_keymetrics_table()
 
         except Exception as e:
             QMessageBox.critical(
@@ -556,6 +566,231 @@ class MainWindow(QMainWindow, window.Ui_MainWindow):
             # Add MplWidget instances as new tabs in the reporting tab widget
             for topic, mpl_widget in reports.items():
                 self.tabWidget_reporting.addTab(mpl_widget, f"SXXP - {topic}")
+
+            # Set the default active tab index
+            self.tabWidget_reporting.setCurrentIndex(2)
+
+        except Exception as e: # pylint: disable=broad-except
+            QMessageBox.critical(
+                self, "Error",
+                f"An error occurred while generating the report : {e}. Please try again."
+            )
+
+    def display_report_dividend_table(self):
+        """
+        Generates and displays a series of report tabs for various topics.
+
+        This method creates and adds new tabs to a tab widget within the 
+        application, each tab containing a graphical representation of 
+        different topics. It handles the creation of the graphical widgets and 
+        manages the display within the user interface. If an error occurs 
+        during the generation of the reports, it will display an error message.
+
+        Raises:
+            Exception: An error dialog will pop up if an exception is caught 
+            during the generation of the report tabs.
+        """
+        try:
+            # Remove tabs above a certain index
+            index = 1
+            for i in range(self.tabWidget_reporting.count() - 1, index, -1):
+                self.tabWidget_reporting.removeTab(i)
+
+            # List of topics to report on
+            topics = ["Latest dates"]
+
+            # Create MplWidget instances
+            reports = {}
+            for topic in topics:
+                mpl_widget = MplWidget(self)
+                reports[topic] = mpl_widget
+
+            # Generate reports and pass them to the reporting handler
+            self.stock_reporting.report_dividend_table(reports)
+
+            # Add MplWidget instances as new tabs in the reporting tab widget
+            for topic, mpl_widget in reports.items():
+                self.tabWidget_reporting.addTab(mpl_widget, f"Dividend - {topic}")
+
+            # Set the default active tab index
+            self.tabWidget_reporting.setCurrentIndex(2)
+
+        except Exception as e: # pylint: disable=broad-except
+            QMessageBox.critical(
+                self, "Error",
+                f"An error occurred while generating the report : {e}. Please try again."
+            )
+
+    def display_report_dailychart_table(self):
+        """
+        Generates and displays a series of report tabs for various topics.
+
+        This method creates and adds new tabs to a tab widget within the 
+        application, each tab containing a graphical representation of 
+        different topics. It handles the creation of the graphical widgets and 
+        manages the display within the user interface. If an error occurs 
+        during the generation of the reports, it will display an error message.
+
+        Raises:
+            Exception: An error dialog will pop up if an exception is caught 
+            during the generation of the report tabs.
+        """
+        try:
+            # Remove tabs above a certain index
+            index = 1
+            for i in range(self.tabWidget_reporting.count() - 1, index, -1):
+                self.tabWidget_reporting.removeTab(i)
+
+            # List of topics to report on
+            topics = ["Null value"]
+
+            # Create MplWidget instances
+            reports = {}
+            for topic in topics:
+                mpl_widget = MplWidget(self)
+                reports[topic] = mpl_widget
+
+            # Generate reports and pass them to the reporting handler
+            self.stock_reporting.report_dailychart_table(reports)
+
+            # Add MplWidget instances as new tabs in the reporting tab widget
+            for topic, mpl_widget in reports.items():
+                self.tabWidget_reporting.addTab(mpl_widget, f"Daily chart - {topic}")
+
+            # Set the default active tab index
+            self.tabWidget_reporting.setCurrentIndex(2)
+
+        except Exception as e: # pylint: disable=broad-except
+            QMessageBox.critical(
+                self, "Error",
+                f"An error occurred while generating the report : {e}. Please try again."
+            )
+
+    def display_report_stocksymbol_table(self):
+        """
+        Generates and displays a series of report tabs for various topics.
+
+        This method creates and adds new tabs to a tab widget within the 
+        application, each tab containing a graphical representation of 
+        different topics. It handles the creation of the graphical widgets and 
+        manages the display within the user interface. If an error occurs 
+        during the generation of the reports, it will display an error message.
+
+        Raises:
+            Exception: An error dialog will pop up if an exception is caught 
+            during the generation of the report tabs.
+        """
+        try:
+            # Remove tabs above a certain index
+            index = 1
+            for i in range(self.tabWidget_reporting.count() - 1, index, -1):
+                self.tabWidget_reporting.removeTab(i)
+
+            # List of topics to report on
+            topics = ['exchange', 'type_']
+
+            # Create MplWidget instances
+            reports = {}
+            for topic in topics:
+                mpl_widget = MplWidget(self)
+                reports[topic] = mpl_widget
+
+            # Generate reports and pass them to the reporting handler
+            self.stock_reporting.report_stocksymbol_table(reports)
+
+            # Add MplWidget instances as new tabs in the reporting tab widget
+            for topic, mpl_widget in reports.items():
+                self.tabWidget_reporting.addTab(mpl_widget, f"Stock symbol - {topic.capitalize()}")
+
+            # Set the default active tab index
+            self.tabWidget_reporting.setCurrentIndex(2)
+
+        except Exception as e: # pylint: disable=broad-except
+            QMessageBox.critical(
+                self, "Error",
+                f"An error occurred while generating the report : {e}. Please try again."
+            )
+
+    def display_report_companyprofile_table(self):
+        """
+        Generates and displays a series of report tabs for various topics.
+
+        This method creates and adds new tabs to a tab widget within the 
+        application, each tab containing a graphical representation of 
+        different topics. It handles the creation of the graphical widgets and 
+        manages the display within the user interface. If an error occurs 
+        during the generation of the reports, it will display an error message.
+
+        Raises:
+            Exception: An error dialog will pop up if an exception is caught 
+            during the generation of the report tabs.
+        """
+        try:
+            # Remove tabs above a certain index
+            index = 1
+            for i in range(self.tabWidget_reporting.count() - 1, index, -1):
+                self.tabWidget_reporting.removeTab(i)
+
+            # List of topics to report on
+            topics = ['currency', 'sector', 'country']
+
+            # Create MplWidget instances
+            reports = {}
+            for topic in topics:
+                mpl_widget = MplWidget(self)
+                reports[topic] = mpl_widget
+
+            # Generate reports and pass them to the reporting handler
+            self.stock_reporting.report_companyprofile_table(reports)
+
+            # Add MplWidget instances as new tabs in the reporting tab widget
+            for topic, mpl_widget in reports.items():
+                self.tabWidget_reporting.addTab(mpl_widget, f"Co. Profile - {topic.capitalize()}")
+
+            # Set the default active tab index
+            self.tabWidget_reporting.setCurrentIndex(2)
+
+        except Exception as e: # pylint: disable=broad-except
+            QMessageBox.critical(
+                self, "Error",
+                f"An error occurred while generating the report : {e}. Please try again."
+            )
+
+    def display_report_keymetrics_table(self):
+        """
+        Generates and displays a series of report tabs for various topics.
+
+        This method creates and adds new tabs to a tab widget within the 
+        application, each tab containing a graphical representation of 
+        different topics. It handles the creation of the graphical widgets and 
+        manages the display within the user interface. If an error occurs 
+        during the generation of the reports, it will display an error message.
+
+        Raises:
+            Exception: An error dialog will pop up if an exception is caught 
+            during the generation of the report tabs.
+        """
+        try:
+            # Remove tabs above a certain index
+            index = 1
+            for i in range(self.tabWidget_reporting.count() - 1, index, -1):
+                self.tabWidget_reporting.removeTab(i)
+
+            # List of topics to report on
+            topics = ["Null value", "Latest dates"]
+
+            # Create MplWidget instances
+            reports = {}
+            for topic in topics:
+                mpl_widget = MplWidget(self)
+                reports[topic] = mpl_widget
+
+            # Generate reports and pass them to the reporting handler
+            self.stock_reporting.report_keymetrics_table(reports)
+
+            # Add MplWidget instances as new tabs in the reporting tab widget
+            for topic, mpl_widget in reports.items():
+                self.tabWidget_reporting.addTab(mpl_widget, f"Key metrics - {topic}")
 
             # Set the default active tab index
             self.tabWidget_reporting.setCurrentIndex(2)
