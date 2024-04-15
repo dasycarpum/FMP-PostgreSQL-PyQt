@@ -11,7 +11,7 @@ Created on 2024-04-01
 
 import os
 from PyQt6.QtWidgets import (QMainWindow, QMenu, QInputDialog, QLineEdit,
-    QMessageBox, QApplication)
+    QMessageBox, QApplication, QTableWidget, QTableWidgetItem, QHeaderView, QTabWidget)
 from PyQt6.QtGui import QDesktopServices, QCursor
 from PyQt6.QtCore import QUrl, Qt, QThread
 from src.models.base import Session
@@ -414,7 +414,7 @@ class MainWindow(QMainWindow, window.Ui_MainWindow):
         # Insert a prompt for the user at the start of the list
         table_list.insert(0, "------ Choice a table ------")
         # Insert an option to select all tables for reporting
-        table_list.insert(1, "All tables")
+        table_list.insert(1, "Tables performance")
 
         # Populate the combo box with the updated table list
         self.comboBox_reporting.addItems(table_list)
@@ -436,7 +436,7 @@ class MainWindow(QMainWindow, window.Ui_MainWindow):
 
         help_text = ""
 
-        if highlighted_text == "All tables":
+        if highlighted_text == "Tables performance":
             help_text = "Generate a performance report for each table in the database"
         elif highlighted_text == "sxxp":
             help_text = "Generates plots to report on the STOXX Europe 600 index components"
@@ -469,7 +469,7 @@ class MainWindow(QMainWindow, window.Ui_MainWindow):
         QApplication.setOverrideCursor(QCursor(Qt.CursorShape.WaitCursor))
 
         try:
-            if current_text == "All tables":
+            if current_text == "Tables performance":
                 self.display_performance_all_tables()
             elif current_text == "sxxp":
                 self.display_report_sxxp_table()
@@ -515,21 +515,99 @@ class MainWindow(QMainWindow, window.Ui_MainWindow):
         """
         try:
             performance_data = self.stock_reporting.report_on_tables_performance()
-            report_html = "<html><head><title>Table Performance Report</title></head><body>"
-            report_html += "<h2>Table Performance Report</h2>"
-            report_html += "<table border='1'><tr><th>Timestamp</th><th>Table Name</th><th>Hypertable</th><th>Execution Time (s)</th><th>Disk Size (bytes)</th></tr>" # pylint: disable=line-too-long
 
-            for record in performance_data:
+            # Assuming you have a QTableWidget named tableWidget_tables in your GUI
+            self.tableWidget_tables.setColumnCount(5)  # Set the number of columns
+            self.tableWidget_tables.setRowCount(len(performance_data))  # Set the number of rows
+
+            # Set headers for the QTableWidget
+            self.tableWidget_tables.setHorizontalHeaderLabels(
+                ["Timestamp", "Table Name", "Hypertable", "Execution Time (s)", "Disk Size"])
+            self.tableWidget_tables.horizontalHeader().setSectionResizeMode(
+                QHeaderView.ResizeMode.Stretch)
+
+            for row, record in enumerate(performance_data):
                 timestamp, table_name, hypertable, execution_time, disk_size = record
                 formatted_timestamp = timestamp.strftime("%Y-%m-%d %H:%M:%S")
-                report_html += f"<tr><td>{formatted_timestamp}</td><td>{table_name}</td><td>{hypertable}</td><td>{execution_time}</td><td>{disk_size}</td></tr>" # pylint: disable=line-too-long
 
-            report_html += "</table></body></html>"
-            self.textBrowser_tables.setHtml(report_html)
+                # Create QTableWidgetItem for each piece of data
+                self.tableWidget_tables.setItem(row, 0, QTableWidgetItem(formatted_timestamp))
+                self.tableWidget_tables.setItem(row, 1, QTableWidgetItem(table_name))
+                self.tableWidget_tables.setItem(row, 2, QTableWidgetItem(str(hypertable)))
+                self.tableWidget_tables.setItem(row, 3, QTableWidgetItem(str(execution_time)))
+                self.tableWidget_tables.setItem(row, 4, QTableWidgetItem(str(disk_size)))
+
             self.tabWidget_reporting.setCurrentIndex(1)
 
         except RuntimeError as e:
             QMessageBox.critical(self, "Error", str(e))
+
+    def remove_tab_above_index(self, tab_widget: QTabWidget,
+        index: int) -> None:
+        """
+        Removes all tabs in a QTabWidget that have an index greater than the specified index.
+
+        This function iterates over the tabs of a given QTabWidget, starting 
+        from the last tab and moving backwards. It removes each tab that has an 
+        index higher than the specified index. The function operates safely 
+        even if the index is out of the normal range by ensuring that only 
+        valid indices are targeted for removal.
+
+        Args:
+            tab_widget (QTabWidget): The QTabWidget from which tabs will be 
+            removed.
+            index (int): The index above which all tabs will be removed. Tabs 
+            at this index and lower will remain.
+
+        Returns:
+            None: This function does not return a value but modifies the 
+            QTabWidget directly.
+
+        Raises:
+            RuntimeError: If an error occurs during the tab removal process.
+            This is caught and re-raised from any underlying Qt exceptions.
+
+        """
+        try:
+            for i in range(tab_widget.count() - 1, index, -1):
+                tab_widget.removeTab(i)
+        except Exception as e:
+            raise RuntimeError("Failed to remove tabs properly.") from e
+
+    def create_widget_instance(self, topics: list) -> dict:
+        """
+        Creates and returns a dictionary of widgets based on the topics provided.
+
+        Each topic in the list will lead to the creation of a specific type of 
+        widget: if the topic contains the word 'table', a QTableWidget is 
+        created; otherwise, an MplWidget is created and associated with the 
+        topic.
+
+        Args:
+            topics (list): A list of topics, each a string that determines the 
+            type of widget to be created.
+
+        Returns:
+            dict: A dictionary mapping each topic to its corresponding widget.
+
+        Raises:
+            Exception: Describes an error that occurred during the widget creation process.
+
+        """
+        reports = {}
+        try:
+            for topic in topics:
+                if 'table' in topic.lower():
+                    table_widget = QTableWidget()
+                    reports[topic] = table_widget
+                else:
+                    mpl_widget = MplWidget(self)
+                    reports[topic] = mpl_widget
+
+        except Exception as e:
+            raise RuntimeError(f"Failed to create widget for topic '{topic}'.") from e
+
+        return reports
 
     def display_report_sxxp_table(self):
         """
@@ -546,26 +624,20 @@ class MainWindow(QMainWindow, window.Ui_MainWindow):
             during the generation of the report tabs.
         """
         try:
-            # Remove tabs above a certain index
-            index = 1
-            for i in range(self.tabWidget_reporting.count() - 1, index, -1):
-                self.tabWidget_reporting.removeTab(i)
+            self.remove_tab_above_index(self.tabWidget_reporting, 1)
 
             # List of topics to report on
             topics = ["Metric", "Currency", "Sector", "Country", "Type"]
 
-            # Create MplWidget instances
-            reports = {}
-            for topic in topics:
-                mpl_widget = MplWidget(self)
-                reports[topic] = mpl_widget
+            # Create Widget instances
+            reports = self.create_widget_instance(topics)
 
             # Generate reports and pass them to the reporting handler
             self.stock_reporting.report_sxxp_table(reports)
 
             # Add MplWidget instances as new tabs in the reporting tab widget
             for topic, mpl_widget in reports.items():
-                self.tabWidget_reporting.addTab(mpl_widget, f"SXXP - {topic}")
+                self.tabWidget_reporting.addTab(mpl_widget, f"SXXP : {topic}")
 
             # Set the default active tab index
             self.tabWidget_reporting.setCurrentIndex(2)
@@ -591,26 +663,20 @@ class MainWindow(QMainWindow, window.Ui_MainWindow):
             during the generation of the report tabs.
         """
         try:
-            # Remove tabs above a certain index
-            index = 1
-            for i in range(self.tabWidget_reporting.count() - 1, index, -1):
-                self.tabWidget_reporting.removeTab(i)
+            self.remove_tab_above_index(self.tabWidget_reporting, 1)
 
             # List of topics to report on
-            topics = ["Latest dates"]
+            topics = ["Latest dates -> Plot", "NaN by stock -> Table", "NaN by column -> Table"]
 
-            # Create MplWidget instances
-            reports = {}
-            for topic in topics:
-                mpl_widget = MplWidget(self)
-                reports[topic] = mpl_widget
+            # Create Widget instances
+            reports = self.create_widget_instance(topics)
 
             # Generate reports and pass them to the reporting handler
             self.stock_reporting.report_dividend_table(reports)
 
             # Add MplWidget instances as new tabs in the reporting tab widget
             for topic, mpl_widget in reports.items():
-                self.tabWidget_reporting.addTab(mpl_widget, f"Dividend - {topic}")
+                self.tabWidget_reporting.addTab(mpl_widget, f"Dividend : {topic}")
 
             # Set the default active tab index
             self.tabWidget_reporting.setCurrentIndex(2)
@@ -636,26 +702,21 @@ class MainWindow(QMainWindow, window.Ui_MainWindow):
             during the generation of the report tabs.
         """
         try:
-            # Remove tabs above a certain index
-            index = 1
-            for i in range(self.tabWidget_reporting.count() - 1, index, -1):
-                self.tabWidget_reporting.removeTab(i)
+            self.remove_tab_above_index(self.tabWidget_reporting, 1)
 
             # List of topics to report on
-            topics = ["Null value"]
+            topics = ["Missing update -> Table", "NaN -> Plot",
+                "NaN by stock -> Table", "NaN by column -> Table"]
 
-            # Create MplWidget instances
-            reports = {}
-            for topic in topics:
-                mpl_widget = MplWidget(self)
-                reports[topic] = mpl_widget
+            # Create Widget instances
+            reports = self.create_widget_instance(topics)
 
             # Generate reports and pass them to the reporting handler
             self.stock_reporting.report_dailychart_table(reports)
 
             # Add MplWidget instances as new tabs in the reporting tab widget
-            for topic, mpl_widget in reports.items():
-                self.tabWidget_reporting.addTab(mpl_widget, f"Daily chart - {topic}")
+            for topic, widget in reports.items():
+                self.tabWidget_reporting.addTab(widget, f"Daily chart : {topic}")
 
             # Set the default active tab index
             self.tabWidget_reporting.setCurrentIndex(2)
@@ -681,26 +742,20 @@ class MainWindow(QMainWindow, window.Ui_MainWindow):
             during the generation of the report tabs.
         """
         try:
-            # Remove tabs above a certain index
-            index = 1
-            for i in range(self.tabWidget_reporting.count() - 1, index, -1):
-                self.tabWidget_reporting.removeTab(i)
+            self.remove_tab_above_index(self.tabWidget_reporting, 1)
 
             # List of topics to report on
             topics = ['exchange', 'type_']
 
-            # Create MplWidget instances
-            reports = {}
-            for topic in topics:
-                mpl_widget = MplWidget(self)
-                reports[topic] = mpl_widget
+            # Create Widget instances
+            reports = self.create_widget_instance(topics)
 
             # Generate reports and pass them to the reporting handler
             self.stock_reporting.report_stocksymbol_table(reports)
 
             # Add MplWidget instances as new tabs in the reporting tab widget
             for topic, mpl_widget in reports.items():
-                self.tabWidget_reporting.addTab(mpl_widget, f"Stock symbol - {topic.capitalize()}")
+                self.tabWidget_reporting.addTab(mpl_widget, f"Stock symbol : {topic.capitalize()}")
 
             # Set the default active tab index
             self.tabWidget_reporting.setCurrentIndex(2)
@@ -726,26 +781,20 @@ class MainWindow(QMainWindow, window.Ui_MainWindow):
             during the generation of the report tabs.
         """
         try:
-            # Remove tabs above a certain index
-            index = 1
-            for i in range(self.tabWidget_reporting.count() - 1, index, -1):
-                self.tabWidget_reporting.removeTab(i)
+            self.remove_tab_above_index(self.tabWidget_reporting, 1)
 
             # List of topics to report on
             topics = ['currency', 'sector', 'country']
 
-            # Create MplWidget instances
-            reports = {}
-            for topic in topics:
-                mpl_widget = MplWidget(self)
-                reports[topic] = mpl_widget
+            # Create Widget instances
+            reports = self.create_widget_instance(topics)
 
             # Generate reports and pass them to the reporting handler
             self.stock_reporting.report_companyprofile_table(reports)
 
             # Add MplWidget instances as new tabs in the reporting tab widget
             for topic, mpl_widget in reports.items():
-                self.tabWidget_reporting.addTab(mpl_widget, f"Co. Profile - {topic.capitalize()}")
+                self.tabWidget_reporting.addTab(mpl_widget, f"Co. Profile : {topic.capitalize()}")
 
             # Set the default active tab index
             self.tabWidget_reporting.setCurrentIndex(2)
@@ -771,26 +820,21 @@ class MainWindow(QMainWindow, window.Ui_MainWindow):
             during the generation of the report tabs.
         """
         try:
-            # Remove tabs above a certain index
-            index = 1
-            for i in range(self.tabWidget_reporting.count() - 1, index, -1):
-                self.tabWidget_reporting.removeTab(i)
+            self.remove_tab_above_index(self.tabWidget_reporting, 1)
 
             # List of topics to report on
-            topics = ["Null value", "Latest dates"]
+            topics = ["Latest dates -> Plot", "NaN -> Plot",
+                "NaN by stock -> Table", "NaN by column -> Table"]
 
-            # Create MplWidget instances
-            reports = {}
-            for topic in topics:
-                mpl_widget = MplWidget(self)
-                reports[topic] = mpl_widget
+            # Create Widget instances
+            reports = self.create_widget_instance(topics)
 
             # Generate reports and pass them to the reporting handler
             self.stock_reporting.report_keymetrics_table(reports)
 
             # Add MplWidget instances as new tabs in the reporting tab widget
             for topic, mpl_widget in reports.items():
-                self.tabWidget_reporting.addTab(mpl_widget, f"Key metrics - {topic}")
+                self.tabWidget_reporting.addTab(mpl_widget, f"Key metrics : {topic}")
 
             # Set the default active tab index
             self.tabWidget_reporting.setCurrentIndex(2)

@@ -15,6 +15,7 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 import seaborn as sns
 import squarify
+from PyQt6.QtWidgets import QTableWidget, QTableWidgetItem, QHeaderView
 
 
 def plot_boxplots(df: pd.DataFrame, variables: list) -> None:
@@ -482,3 +483,45 @@ def plot_grouped_barchart_widget(canvas: FigureCanvasQTAgg, df: pd.DataFrame,
     # Adjust layout and refresh the canvas
     canvas.figure.tight_layout()
     canvas.draw()
+
+def populate_tablewidget_with_df(table_widget: QTableWidget, df: pd.DataFrame):
+    """
+    Populates a QTableWidget with data from a Pandas DataFrame using the 
+    DataFrame's column indices as headers. It ensures all data displayed are 
+    appropriately formatted as strings and checks if numeric values can be 
+    represented as integers to avoid displaying unnecessary decimal points.
+
+    Args:
+        df (pd.DataFrame): The DataFrame containing the data to display. 
+        Assumes that the DataFrame has appropriately named columns that will be 
+        used as headers for the QTableWidget.
+        table_widget (QTableWidget): The QTableWidget instance to be populated 
+        with data from the DataFrame.
+
+    Returns:
+        None: This function does not return anything but directly modifies the
+            QTableWidget passed as an argument.
+
+    Raises:
+        This function currently does not raise exceptions but will fail if df 
+        or table_widget are not correctly specified or if the df contains data 
+        types that cannot be directly converted to strings.
+
+    """
+    # Set the number of columns and rows in the QTableWidget
+    table_widget.setColumnCount(len(df.columns))
+    table_widget.setRowCount(len(df.index))
+
+    # Set the headers in the QTableWidget using the column names of the DataFrame
+    table_widget.setHorizontalHeaderLabels([str(col) for col in df.columns])
+    table_widget.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+
+    # Populate the QTableWidget with the data
+    for row in range(len(df.index)):
+        for col in range(len(df.columns)):
+            # Use iat for better performance in accessing scalar values
+            item_value = df.iat[row, col]
+            if isinstance(item_value, float) and item_value.is_integer():
+                item_value = int(item_value)
+            table_widget.setItem(row, col, QTableWidgetItem(str(item_value)))
+    

@@ -16,6 +16,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from src.models.base import Session
 from src.dal.fmp.database_query import StockQuery
 from src.services import plot
+pd.set_option('future.no_silent_downcasting', True)
 
 
 class StockReporting:
@@ -243,7 +244,6 @@ class StockReporting:
         try:
             # Data query 1
             df_update = self.stock_query.get_dailychart_missing_update()
-            print(df_update)
 
             # Data qyery 2
             df_zero = pd.DataFrame()
@@ -257,24 +257,26 @@ class StockReporting:
 
             df_zero['is_actively_trading'] = df_zero[
                 'is_actively_trading'].fillna(False).astype(bool)
-            print(df_zero)
 
             df_zero_by_stock = df_zero[df_zero[
-                'is_actively_trading']].groupby('stock_id')['zero_column_count'].sum().reset_index()
-            print(df_zero_by_stock.sort_values('zero_column_count'))
+                'is_actively_trading']].groupby('stock_id')['zero_column_count'].sum().reset_index().sort_values('zero_column_count', ascending=False) # pylint: disable=line-too-long
+
+            df_zero_by_column = df_zero[df_zero['is_actively_trading']
+            ].groupby('column_name')['zero_column_count'].sum().reset_index().sort_values('zero_column_count', ascending=False) # pylint: disable=line-too-long
 
             # Plotting
-            for topic, mpl_widget in reports.items():
-
-                canvas = mpl_widget.canvas
-                if topic == "Null value":
+            for topic, widget in reports.items():
+                if topic == "NaN -> Plot":
+                    canvas = widget.canvas
                     plot.plot_distributions_widget(canvas, df_zero_by_stock,
                         ['zero_column_count'],
                         "Daily chart : distribution of null values / stock")
-
-            df_zero_by_column = df_zero[df_zero['is_actively_trading']
-            ].groupby('column_name')['zero_column_count'].sum().reset_index()
-            print(df_zero_by_column.sort_values('zero_column_count'))
+                elif topic == "Missing update -> Table":
+                    plot.populate_tablewidget_with_df(widget, df_update)
+                elif topic == "NaN by stock -> Table":
+                    plot.populate_tablewidget_with_df(widget, df_zero_by_stock)
+                elif topic == "NaN by column -> Table":
+                    plot.populate_tablewidget_with_df(widget, df_zero_by_column)
 
             # Data query 3
             df_gap = self.stock_query.get_dailychart_finding_gap_by_stock(21412)
@@ -322,24 +324,25 @@ class StockReporting:
                 df_zero = pd.concat([df_zero, df], ignore_index=True)
 
             df_zero_by_stock = df_zero[df_zero['is_actively_trading']
-            ].groupby('stock_id')['zero_column_count'].sum().reset_index()
-            print(df_zero_by_stock.sort_values('zero_column_count'))
+            ].groupby('stock_id')['zero_column_count'].sum().reset_index().sort_values('zero_column_count', ascending=False) # pylint: disable=line-too-long
 
             df_zero_by_column = df_zero[df_zero['is_actively_trading']
-            ].groupby('column_name')['zero_column_count'].sum().reset_index()
-            print(df_zero_by_column.sort_values('zero_column_count'))
+            ].groupby('column_name')['zero_column_count'].sum().reset_index().sort_values('zero_column_count', ascending=False) # pylint: disable=line-too-long
 
             # Data query 2
             df = self.stock_query.get_table_date('dividend')
             sum_ = df.shape[0]
 
             # Plotting
-            for topic, mpl_widget in reports.items():
-
-                canvas = mpl_widget.canvas
-                if topic == "Latest dates":
+            for topic, widget in reports.items():
+                if topic == "Latest dates -> Plot":
+                    canvas = widget.canvas
                     plot.plot_distributions_widget(canvas, df, ['max_date'],
                         f"Dividend : distribution of latest payment date - Total = {sum_}")
+                elif topic == "NaN by stock -> Table":
+                    plot.populate_tablewidget_with_df(widget, df_zero_by_stock)
+                elif topic == "NaN by column -> Table":
+                    plot.populate_tablewidget_with_df(widget, df_zero_by_column)
 
         except SQLAlchemyError as e:
             raise RuntimeError(
@@ -382,33 +385,34 @@ class StockReporting:
                 df = self.stock_query.get_table_missing_value_by_column('keymetrics', column)
                 df['column_name'] = column
                 df_zero = pd.concat([df_zero, df], ignore_index=True)
-            print(df_zero.sort_values('is_actively_trading'))
 
             df_zero = df_zero.dropna(subset=['is_actively_trading'])
 
             df_zero_by_column = df_zero[df_zero['is_actively_trading']
-            ].groupby('column_name')['zero_column_count'].sum().reset_index()
-            print(df_zero_by_column.sort_values('zero_column_count'))
+            ].groupby('column_name')['zero_column_count'].sum().reset_index().sort_values('zero_column_count', ascending=False) # pylint: disable=line-too-long
 
             df_zero_by_stock = df_zero[df_zero['is_actively_trading']
-            ].groupby('stock_id')['zero_column_count'].sum().reset_index()
-            print(df_zero_by_stock.sort_values('zero_column_count'))
+            ].groupby('stock_id')['zero_column_count'].sum().reset_index().sort_values('zero_column_count', ascending=False) # pylint: disable=line-too-long
 
             # Data query 2
             df = self.stock_query.get_table_date('keymetrics')
             sum_ = df.shape[0]
 
             # Plotting
-            for topic, mpl_widget in reports.items():
-
-                canvas = mpl_widget.canvas
-                if topic == "Latest dates":
+            for topic, widget in reports.items():
+                if topic == "Latest dates -> Plot":
+                    canvas = widget.canvas
                     plot.plot_distributions_widget(canvas, df, ['max_date'],
                         f"Key metrics : distribution of latest publication date - Total = {sum_}")
-                elif topic == "Null value":
+                elif topic == "NaN -> Plot":
+                    canvas = widget.canvas
                     plot.plot_distributions_widget(canvas, df_zero_by_stock,
                         ['zero_column_count'],
                         "Key metrics : distribution of null values / stock")
+                elif topic == "NaN by stock -> Table":
+                    plot.populate_tablewidget_with_df(widget, df_zero_by_stock)
+                elif topic == "NaN by column -> Table":
+                    plot.populate_tablewidget_with_df(widget, df_zero_by_column)
 
         except SQLAlchemyError as e:
             raise RuntimeError(
