@@ -715,11 +715,13 @@ class StockQuery:
             # Measuring query response time
             start_time = time.time()
 
+            # Sample SQL query to measure execution time on a small data sample
             query_rt = text(f"""
             SELECT * FROM {table_name} TABLESAMPLE BERNOULLI (1)  -- 1% of table
             """)
             result_rt = self.db_session.execute(query_rt) # pylint: disable=unused-variable
 
+            # Calculate execution time
             execution_time = round(time.time() - start_time, 4)
 
             # Check if the table is already a hypertable
@@ -739,9 +741,20 @@ class StockQuery:
                 SELECT pg_size_pretty(pg_total_relation_size('public.{table_name}'))
                 """)
 
+            # Get the disk space used by the table
             result_ds = self.db_session.execute(query_ds).fetchone()
 
-            return datetime.now(), table_name, hypertable, execution_time, result_ds[0]
+            # Get the number of rows in the table
+            row_count = self.db_session.execute(text(f"SELECT COUNT(*) FROM {table_name}")).scalar()
+
+            # Get the number of columns in the table
+            column_count = self.db_session.execute(text(f"""
+            SELECT COUNT(*) FROM information_schema.columns 
+            WHERE table_name = '{table_name}' AND table_schema = 'public'
+            """)).scalar()
+
+            return (datetime.now(), table_name, hypertable, row_count,
+                column_count, execution_time, result_ds[0])
 
         except SQLAlchemyError as e:
             # Rollback the transaction in case of an error

@@ -507,25 +507,29 @@ class MainWindow(QMainWindow, window.Ui_MainWindow):
             performance_data = self.stock_reporting.report_on_tables_performance()
 
             # Assuming you have a QTableWidget named tableWidget_tables in your GUI
-            self.tableWidget_tables.setColumnCount(5)  # Set the number of columns
+            self.tableWidget_tables.setColumnCount(6)  # Set the number of columns
             self.tableWidget_tables.setRowCount(len(performance_data))  # Set the number of rows
 
             # Set headers for the QTableWidget
             self.tableWidget_tables.setHorizontalHeaderLabels(
-                ["Timestamp", "Table Name", "Hypertable", "Execution Time (s)", "Disk Size"])
+                ["Timestamp", "Table Name", "Hypertable",
+                 "Dimension (r x c)", "Execution Time (s)", "Disk Size"])
             self.tableWidget_tables.horizontalHeader().setSectionResizeMode(
                 QHeaderView.ResizeMode.Stretch)
 
             for row, record in enumerate(performance_data):
-                timestamp, table_name, hypertable, execution_time, disk_size = record
+                (timestamp, table_name, hypertable, row_count, column_count,
+                 execution_time, disk_size) = record
                 formatted_timestamp = timestamp.strftime("%Y-%m-%d %H:%M:%S")
 
                 # Create QTableWidgetItem for each piece of data
                 self.tableWidget_tables.setItem(row, 0, QTableWidgetItem(formatted_timestamp))
                 self.tableWidget_tables.setItem(row, 1, QTableWidgetItem(table_name))
                 self.tableWidget_tables.setItem(row, 2, QTableWidgetItem(str(hypertable)))
-                self.tableWidget_tables.setItem(row, 3, QTableWidgetItem(str(execution_time)))
-                self.tableWidget_tables.setItem(row, 4, QTableWidgetItem(str(disk_size)))
+                self.tableWidget_tables.setItem(row, 3,
+                 QTableWidgetItem(str(row_count) + ' x ' + str(column_count)))
+                self.tableWidget_tables.setItem(row, 4, QTableWidgetItem(str(execution_time)))
+                self.tableWidget_tables.setItem(row, 5, QTableWidgetItem(str(disk_size)))
 
             self.tabWidget_reporting.setCurrentIndex(1)
 
