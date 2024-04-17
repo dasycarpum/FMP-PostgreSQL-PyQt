@@ -70,6 +70,7 @@ class MainWindow(QMainWindow, window.Ui_MainWindow):
         self.action_postgresql_install.triggered.connect(self.set_pdf_to_open)
         self.action_postgresql_update.triggered.connect(self.set_pdf_to_open)
         self.action_timescaledb_install.triggered.connect(self.set_pdf_to_open)
+        self.action_env_file.triggered.connect(self.set_pdf_to_open)
         self.action_create_new_database.triggered.connect(
             self.setup_new_database)
         self.action_create_tables.triggered.connect(self.setup_stock_tables)
@@ -138,7 +139,7 @@ class MainWindow(QMainWindow, window.Ui_MainWindow):
             if parent_menu is None:
                 raise ValueError("No parent QMenu found among associated objects.")
 
-            action_text = action.text().lower()
+            action_text = action.text().lower().replace(" ", "_")
             menu_text = parent_menu.title().lower()
 
             if not self.open_pdf(f"docs/{menu_text}_{action_text}.pdf"):

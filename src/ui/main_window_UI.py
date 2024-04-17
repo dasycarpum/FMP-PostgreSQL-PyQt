@@ -154,10 +154,14 @@ class Ui_MainWindow(object):
         self.action_postgresql_update.setObjectName("action_postgresql_update")
         self.action_report_tables = QtGui.QAction(parent=MainWindow)
         self.action_report_tables.setObjectName("action_report_tables")
+        self.action_env_file = QtGui.QAction(parent=MainWindow)
+        self.action_env_file.setObjectName("action_env_file")
         self.menu_postgresql.addAction(self.action_postgresql_install)
         self.menu_postgresql.addAction(self.action_postgresql_update)
         self.menuHelp.addAction(self.menu_postgresql.menuAction())
         self.menuHelp.addAction(self.action_timescaledb_install)
+        self.menuHelp.addSeparator()
+        self.menuHelp.addAction(self.action_env_file)
         self.menu_fetch_initial_data.addAction(self.action_fetch_stock_symbols)
         self.menu_fetch_initial_data.addAction(self.action_fetch_company_profile)
         self.menu_fetch_initial_data.addAction(self.action_fetch_stoxx_europe)
@@ -220,6 +224,7 @@ class Ui_MainWindow(object):
         self.action_postgresql_install.setText(_translate("MainWindow", "Install"))
         self.action_postgresql_update.setText(_translate("MainWindow", "Update"))
         self.action_report_tables.setText(_translate("MainWindow", "Report on tables"))
+        self.action_env_file.setText(_translate("MainWindow", "Environment file"))
 
 
 if __name__ == "__main__":
