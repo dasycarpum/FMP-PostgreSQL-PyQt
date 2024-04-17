@@ -86,6 +86,8 @@ class MainWindow(QMainWindow, window.Ui_MainWindow):
         self.comboBox_reporting.currentTextChanged.connect(
             self.choice_reporting)
         self.comboBox_reporting.textHighlighted.connect(self.help_reporting)
+        self.pushButton_query_clear.clicked.connect(self.clear_sql_query)
+        self.pushButton_query_ok.clicked.connect(self.display_query_results)
         self.stock_service.update_signal.connect(
             self.update_text_browser_process)
 
@@ -619,7 +621,7 @@ class MainWindow(QMainWindow, window.Ui_MainWindow):
 
         """
         try:
-            self.remove_tab_above_index(self.tabWidget_reporting, 1)
+            self.remove_tab_above_index(self.tabWidget_reporting, 2)
 
             # Define topics based on the table name
             if table_name == "sxxp":
@@ -656,10 +658,57 @@ class MainWindow(QMainWindow, window.Ui_MainWindow):
                 self.tabWidget_reporting.addTab(widget, f"{topic}")
 
             # Set the default active tab index
-            self.tabWidget_reporting.setCurrentIndex(2)
+            self.tabWidget_reporting.setCurrentIndex(3)
 
         except Exception as e: # pylint: disable=broad-except
             QMessageBox.critical(
                 self, "Error",
                 f"An error occurred while generating the report : {e}. Please try again."
             )
+
+    def clear_sql_query(self):
+        """ Clear the text in the QTextEdit """
+        self.textEdit_query.clear()
+
+    def display_query_results(self):
+        """
+        Executes a SQL SELECT query from the text input provided in a QTextEdit 
+        and displays the results.
+
+        This function retrieves the text from a QTextEdit, processes it to 
+        remove new line characters, and checks if the query starts with 
+        'SELECT'. If the query is valid, it is executed and the results are
+        displayed. If the query is invalid or fails due to a syntax error, a 
+        critical error message is shown using a QMessageBox.
+
+        Raises:
+            ValueError: If the query does not start with 'SELECT'.
+            Exception: If there is a syntax or execution error in the SQL query.
+
+        Side Effects:
+            - Shows a QMessageBox if an error is detected.
+            - Executes a SQL query on the associated database.
+
+        Note:
+            This function only allows SELECT queries to prevent potential 
+            modification or deletion of data. It is designed to handle basic 
+            SQL queries and may not handle complex SQL syntax without errors.
+
+        """
+        # Retrieve text from QTextEdit
+        raw_text = self.textEdit_query.toPlainText()
+
+        # Remove all new line characters
+        query_text = raw_text.replace('\n', ' ').replace('\r', ' ')
+
+        # Check if the query is a SELECT query
+        if not query_text.strip().lower().startswith('select'):
+            QMessageBox.critical(self, 'Invalid Query', 'Only SELECT queries are allowed.')
+            return
+
+        try:
+            # Execute the SQL query
+            self.stock_reporting.get_sql_query_result(self.tableWidget_query, query_text)
+        except Exception as e:  # pylint: disable=broad-except
+            # Display a critical error message about the syntax error
+            QMessageBox.critical(self, 'Query Error', f'Syntax error in SQL query: {e}')

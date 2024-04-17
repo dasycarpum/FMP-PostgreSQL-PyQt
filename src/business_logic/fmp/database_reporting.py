@@ -13,6 +13,7 @@ implementation details of data retrieval or database interaction.
 
 import pandas as pd
 from sqlalchemy.exc import SQLAlchemyError
+from PyQt6.QtWidgets import QTableWidget
 from src.models.base import Session
 from src.dal.fmp.database_query import StockQuery
 from src.services import plot
@@ -462,3 +463,36 @@ class StockReporting:
         except Exception as e:
             raise RuntimeError(
                 f"Failed to report on table performance due to an unexpected error: {e}") from e
+
+    def get_sql_query_result(self, table_widget: QTableWidget, query_text: str) -> None:
+        """
+        Executes a given SQL query using a database interface, converts the 
+        results to a DataFrame, and populates a specified QTableWidget with the 
+        DataFrame.
+
+        This function takes an SQL query as a string, executes it to fetch 
+        data, and then uses this data to populate a QTableWidget using a helper 
+        function. It handles both database-specific errors and other unexpected 
+        errors by re-raising them as RuntimeError with appropriate messages.
+
+        Args:
+            table_widget (QTableWidget): The QTableWidget instance where the 
+            results will be displayed.
+            query_text (str): The SQL query string to be executed.
+
+        Raises:
+            RuntimeError: If the SQL query fails due to a database error or any 
+            other unexpected error, encapsulating the original exception.
+
+        """
+        try:
+            df_result = self.stock_query.fetch_sql_query_as_dataframe(query_text)
+
+            plot.populate_tablewidget_with_df(table_widget, df_result)
+
+        except SQLAlchemyError as e:
+            raise RuntimeError(
+                f"Failed to exectute the SQL query due to database error: {e}") from e
+        except Exception as e:
+            raise RuntimeError(
+                f"Failed to  exectute the SQL query due to an unexpected error: {e}") from e

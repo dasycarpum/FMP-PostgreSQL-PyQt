@@ -806,3 +806,44 @@ class StockQuery:
         finally:
             # Close session in all cases (on success or failure)
             self.db_session.close()
+
+    def fetch_sql_query_as_dataframe(self, query_text: str) -> pd.DataFrame:
+        """
+        Execute a SQL query and return the results as a pandas DataFrame.
+
+        This method executes a given SQL query using the active database 
+        session and returns the results in a pandas DataFrame. The DataFrame 
+        will have columns corresponding to the SQL query output.
+        If an error occurs during the execution of the query, the transaction 
+        is rolled back and the session is closed before raising an error. The 
+        session is also closed upon successful completion of the query.
+
+        Args:
+            query_text (str): The SQL query to execute.
+
+        Returns:
+            pd.DataFrame: A DataFrame containing the results of the SQL query.
+
+        Raises:
+            RuntimeError: An error occurs during the query execution or during session handling.
+        
+        """
+        try:
+            query = text(query_text)
+            result = self.db_session.execute(query)
+
+            # Create a DataFrame from the result set
+            df = pd.DataFrame(result.fetchall())
+            # This sets the column headers to the names of the SQL columns
+            df.columns = result.keys()
+
+            return df
+
+        except SQLAlchemyError as e:
+            # Rollback the transaction in case of an error
+            self.db_session.rollback()
+            raise RuntimeError(f"An error occurred: {e}") from e
+
+        finally:
+            # Close session in all cases (on success or failure)
+            self.db_session.close()
