@@ -20,6 +20,7 @@ from src.business_logic.fmp.database_reporting import StockReporting
 import src.ui.main_window_UI as window
 from src.ui.worker import Worker
 from src.ui.mplwidget import MplWidget
+from src.ui.chart_window import ChartWindow
 
 
 class MainWindow(QMainWindow, window.Ui_MainWindow):
@@ -61,6 +62,7 @@ class MainWindow(QMainWindow, window.Ui_MainWindow):
         self.stock_service = StockService(self.db_session)
         self.stock_reporting = StockReporting(self.db_session)
         self.worker = None
+        self.chart_window = None
 
         self.setup_reporting()
         self.setup_signal_connections()
@@ -91,6 +93,7 @@ class MainWindow(QMainWindow, window.Ui_MainWindow):
         self.pushButton_query_ok.clicked.connect(self.display_query_results)
         self.stock_service.update_signal.connect(
             self.update_text_browser_process)
+        self.action_chart_window.triggered.connect(self.open_chart_window)
 
     def set_pdf_to_open(self):
         """
@@ -713,3 +716,20 @@ class MainWindow(QMainWindow, window.Ui_MainWindow):
         except Exception as e:  # pylint: disable=broad-except
             # Display a critical error message about the syntax error
             QMessageBox.critical(self, 'Query Error', f'Syntax error in SQL query: {e}')
+
+    def open_chart_window(self):
+        """
+        Opens the chart window.
+
+        This method creates and shows an instance of ChartWindow. It includes 
+        error handling to manage potential issues during window initialization and display.
+
+        Args:
+            None
+        """
+        try:
+            self.chart_window = ChartWindow(self)
+            self.chart_window.show()
+
+        except Exception as e:  # pylint: disable=broad-except
+            print(f"Failed to open the chart window: {str(e)}")

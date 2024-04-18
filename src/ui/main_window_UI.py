@@ -98,6 +98,8 @@ class Ui_MainWindow(object):
         self.menu_fetch_initial_data.setObjectName("menu_fetch_initial_data")
         self.menuUpdate_time_data = QtWidgets.QMenu(parent=self.menuFMP_Database)
         self.menuUpdate_time_data.setObjectName("menuUpdate_time_data")
+        self.menuTools = QtWidgets.QMenu(parent=self.menubar)
+        self.menuTools.setObjectName("menuTools")
         MainWindow.setMenuBar(self.menubar)
         self.statusbar = QtWidgets.QStatusBar(parent=MainWindow)
         self.statusbar.setObjectName("statusbar")
@@ -156,6 +158,8 @@ class Ui_MainWindow(object):
         self.action_report_tables.setObjectName("action_report_tables")
         self.action_env_file = QtGui.QAction(parent=MainWindow)
         self.action_env_file.setObjectName("action_env_file")
+        self.action_chart_window = QtGui.QAction(parent=MainWindow)
+        self.action_chart_window.setObjectName("action_chart_window")
         self.menu_postgresql.addAction(self.action_postgresql_install)
         self.menu_postgresql.addAction(self.action_postgresql_update)
         self.menuHelp.addAction(self.menu_postgresql.menuAction())
@@ -176,8 +180,10 @@ class Ui_MainWindow(object):
         self.menuFMP_Database.addAction(self.action_create_tables)
         self.menuFMP_Database.addAction(self.menu_fetch_initial_data.menuAction())
         self.menuFMP_Database.addAction(self.menuUpdate_time_data.menuAction())
+        self.menuTools.addAction(self.action_chart_window)
         self.menubar.addAction(self.menuHelp.menuAction())
         self.menubar.addAction(self.menuFMP_Database.menuAction())
+        self.menubar.addAction(self.menuTools.menuAction())
 
         self.retranslateUi(MainWindow)
         self.tabWidget_reporting.setCurrentIndex(0)
@@ -198,6 +204,7 @@ class Ui_MainWindow(object):
         self.menuFMP_Database.setTitle(_translate("MainWindow", "FMP Database"))
         self.menu_fetch_initial_data.setTitle(_translate("MainWindow", "Fetch initial data"))
         self.menuUpdate_time_data.setTitle(_translate("MainWindow", "Update time data"))
+        self.menuTools.setTitle(_translate("MainWindow", "Tools"))
         self.actionPostgreSQL.setText(_translate("MainWindow", "PostgreSQL"))
         self.actionTimescaleDB.setText(_translate("MainWindow", "TimescaleDB"))
         self.action_timescaledb_install.setText(_translate("MainWindow", "TimescaleDB"))
@@ -225,6 +232,7 @@ class Ui_MainWindow(object):
         self.action_postgresql_update.setText(_translate("MainWindow", "Update"))
         self.action_report_tables.setText(_translate("MainWindow", "Report on tables"))
         self.action_env_file.setText(_translate("MainWindow", "Environment file"))
+        self.action_chart_window.setText(_translate("MainWindow", "Open chart window..."))
 
 
 if __name__ == "__main__":
