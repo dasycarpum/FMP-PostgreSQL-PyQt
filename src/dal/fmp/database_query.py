@@ -847,3 +847,43 @@ class StockQuery:
         finally:
             # Close session in all cases (on success or failure)
             self.db_session.close()
+
+    def fetch_stock_dictionary(self) -> dict[int, list[str]]:
+        """Fetches stock data and returns it as a dictionary.
+
+        This function executes a SQL query that retrieves stock identifiers, 
+        names, symbols, and ISINs from a database. It right joins the 
+        `stocksymbol` table with the `sxxp` table on stock id. The data is then 
+        converted into a dictionary where each key is the stock id and the 
+        value is a list containing the stock name, symbol, and ISIN.
+
+        Returns:
+            dict[int, list[str]]: A dictionary mapping stock ids to a list of 
+            attributes (name, symbol, ISIN).
+
+        Raises:
+            RuntimeError: If an error occurs during the database operation.
+
+        """
+        try:
+            query = text("""
+            SELECT ss.id, name, symbol, isin 
+            FROM stocksymbol ss
+            RIGHT JOIN sxxp ON ss.id = sxxp.stock_id;
+            """)
+
+            data = self.db_session.execute(query).fetchall()
+
+            # Creating the dictionary from fetched data
+            stock_dict = {item.id: [item.name, item.symbol, item.isin] for item in data}
+
+            return stock_dict
+
+        except SQLAlchemyError as e:
+            # Rollback the transaction in case of an error
+            self.db_session.rollback()
+            raise RuntimeError(f"An error occurred: {e}") from e
+
+        finally:
+            # Close session in all cases (on success or failure)
+            self.db_session.close()

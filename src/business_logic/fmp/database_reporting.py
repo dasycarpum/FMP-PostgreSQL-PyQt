@@ -492,7 +492,41 @@ class StockReporting:
 
         except SQLAlchemyError as e:
             raise RuntimeError(
-                f"Failed to exectute the SQL query due to database error: {e}") from e
+                f"Failed to execute the SQL query due to database error: {e}") from e
         except Exception as e:
             raise RuntimeError(
-                f"Failed to  exectute the SQL query due to an unexpected error: {e}") from e
+                f"Failed to execute the SQL query due to an unexpected error: {e}") from e
+
+    def get_stock_dictionary(self) -> dict[int, list[str]]:
+        """
+        Retrieves a dictionary of stock information.
+
+        This function is a higher-level business logic function that fetches a 
+        dictionary mapping stock ids to a list of attributes (name, symbol, 
+        ISIN). It internally calls another method (`fetch_stock_dictionary`) 
+        which handles the database query. The function abstracts away the 
+        details of the database operation, providing a clean interface for 
+        obtaining stock data.
+
+        Returns:
+            dict[int, list[str]]: A dictionary where each key is a stock id and 
+            the value is a list containing the stock's name, symbol, and ISIN. 
+
+        Raises:
+            RuntimeError: If an error occurs during the SQL query execution, 
+            either due to a database-specific error or an unexpected general 
+            error.
+
+        """
+        try:
+            stock_dict = self.stock_query.fetch_stock_dictionary()
+
+            return stock_dict
+
+        except SQLAlchemyError as e:
+            raise RuntimeError(
+                f"Failed to create a stock dictionary due to database error: {e}") from e
+        except Exception as e:
+            raise RuntimeError(
+                f"Failed to create a stock dictionary due to an unexpected error: {e}") from e
+    
