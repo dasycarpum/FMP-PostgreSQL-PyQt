@@ -9,10 +9,18 @@ Created on 2024-04-18
 
 """
 
+import os
+import pandas as pd
+import numpy as np
+from plotly.offline import plot
+import plotly.graph_objects as go
 from PyQt6.QtWidgets import QMainWindow
+from PyQt6.QtWebEngineWidgets import QWebEngineView
 from src.models.base import Session
 import src.ui.chart_window_UI as window
 from src.business_logic.fmp.database_reporting import StockReporting
+
+os.environ["QTWEBENGINE_DICTIONARIES_PATH"] = '/home/roland/Bureau/FMP-PostgreSQL-PyQt/.venv/lib/python3.11/site-packages/PyQt6/Qt6/libexec/qtwebengine_dictionaries' # pylint: disable=line-too-long
 
 class ChartWindow(QMainWindow, window.Ui_MainWindow):
     """Chart application window for the PyQt6 application.
@@ -170,3 +178,33 @@ class ChartWindow(QMainWindow, window.Ui_MainWindow):
 
         if len(self.setting) == 4:
             print(self.setting)
+            self.draw_a_plotly_bar_plot()
+
+    def draw_a_plotly_bar_plot(self):
+        """Draws a bar plot in the PyQt application using Plotly.
+        
+        This function creates a bar plot using Plotly based on hardcoded x and 
+        y values. It then displays this plot within a QWebEngineView that is 
+        inserted into the existing QVBoxLayout (`verticalLayout_plotly`).
+
+        """
+        # Prepare data
+        data = pd.DataFrame({
+            'x': 0.5 + np.arange(8),
+            'y': [4.8, 5.5, 3.5, 4.6, 6.5, 6.6, 2.6, 3.0]
+        })
+
+        # Create a Plotly figure
+        fig = go.Figure(
+            data=[go.Bar(x=data['x'], y=data['y'],
+            marker_line_color='white', marker_line_width=0.7)])
+
+        # Generate HTML representation of the Plotly figure
+        plot_html = plot(fig, output_type='div', include_plotlyjs='cdn')
+
+        # Create a QWebEngineView to display the HTML
+        webview = QWebEngineView()
+        webview.setHtml(plot_html)
+
+        # Add the QWebEngineView to the QVBoxLayout
+        self.verticalLayout_chart.addWidget(webview)
