@@ -48,19 +48,32 @@ class ChartWindow(QMainWindow, window.Ui_MainWindow):
         super(ChartWindow, self).__init__(parent)
         self.setupUi(self)
 
+        self.setup_charting()
+        self.setup_signal_connections()
+
+    def setup_signal_connections(self) -> None:
+        """Set up the signal connections for the UI elements."""
+        self.lineEdit_search.textChanged.connect(self.on_text_changed)
+        self.comboBox_period.currentTextChanged.connect(self.period_changed)
+        self.comboBox_interval.currentTextChanged.connect(self.interval_changed)
+        self.checkBox_log_scale.stateChanged.connect(self.log_scale_changed)
+        self.pushButton_setting.clicked.connect(self.handle_setting_validation)
+
+    def setup_charting(self) -> None:
+        """Set up the initial charting configuration by initializing attributes"""
         self.db_session = Session()
         self.stock_reporting = StockReporting(self.db_session)
         self.stock_dict = self.stock_reporting.get_stock_dictionary()
         self.setting = {}
+        self.setting['log_scale'] = False
 
-        self.setup_signal_connections()
+        period = ['3 months', '18 months', '3 years', '9 years', '18 years', 'max period']
+        interval = ['daily', 'weekly', 'monthly']
+        # Populate the combo box with the updated table list
+        self.comboBox_period.addItems(period)
+        self.comboBox_interval.addItems(interval)
 
-    def setup_signal_connections(self):
-        """Set up the signal connections for the UI elements."""
-        self.lineEdit_search.textChanged.connect(self.on_text_changed)
-        self.pushButton_setting.clicked.connect(self.handle_setting_validation)
-
-    def on_text_changed(self, text):
+    def on_text_changed(self, text: str) -> None :
         """
         Handles text changes in a QLineEdit widget by searching for matching 
         stock details in the stock dictionary and updating UI components with 
@@ -102,6 +115,58 @@ class ChartWindow(QMainWindow, window.Ui_MainWindow):
             self.label_stock_symbol.clear()
             self.label_stock_id.clear()
 
-    def handle_setting_validation(self):
+    def period_to_days(self, period_str: str) -> int:
+        """Convert a period string into an equivalent number of days.
 
-        print(self.setting)
+        Args:
+            period_str (str): The period string to convert.
+
+        Returns:
+            int: The number of days corresponding to the period string, or 0 on error.
+        """
+        try:
+            # Split the string into number and period type
+            num, unit = period_str.split()
+            num = int(num)  # Convert the number part to an integer
+
+            # Define the average lengths
+            if 'month' in unit:
+                # Average days in a month
+                return num * 30
+            elif 'year' in unit:
+                # Average days in a year
+                return num * 365
+        except ValueError:
+            # Return 0 if there's any error during parsing or conversion
+            return 0
+
+    def period_changed(self, text: str) -> None:
+        """Update the period setting when the period combo box value changes.
+
+        Args:
+            text (str): The new period text from the combo box.
+        """
+        self.setting['period'] = self.period_to_days(text)
+        self.handle_setting_validation()
+
+    def interval_changed(self, text: str) -> None:
+        """Update the interval setting when the interval combo box value changes.
+
+        Args:
+            text (str): The new interval text from the combo box.
+
+        """
+        self.setting['interval'] = text
+        self.handle_setting_validation()
+
+    def log_scale_changed(self) -> None:
+        """Toggle the log scale setting based on the checkbox state."""
+
+        self.setting['log_scale'] = self.checkBox_log_scale.isChecked()
+        self.handle_setting_validation()
+
+    def handle_setting_validation(self):
+        """Validate the current settings and print them if they are complete."""
+
+        if len(self.setting) == 4:
+            print(self.setting)
