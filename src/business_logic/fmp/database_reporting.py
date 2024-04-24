@@ -529,4 +529,40 @@ class StockReporting:
         except Exception as e:
             raise RuntimeError(
                 f"Failed to create a stock dictionary due to an unexpected error: {e}") from e
-    
+
+    def get_dailychart_data(self, stock_id: int, start_date: str) -> pd.DataFrame:
+        """
+        Retrieves daily chart data for a specified stock from a starting date.
+
+        This function acts as a wrapper around `fetch_dailychart_data` method 
+        of the `stock_query` attribute within the class. It handles any 
+        database-related errors and general exceptions to provide a clear 
+        error message to the caller. If successful, it returns the data as a 
+        pandas DataFrame.
+
+        Args:
+            stock_id (int): The stock ID for which to retrieve daily chart data.
+            start_date (str): The start date from which to begin fetching the 
+            data, in a format that can be interpreted by the database.
+
+        Returns:
+            pd.DataFrame: A DataFrame containing daily chart data from the 
+            specified start date for the given stock ID.
+
+        Raises:
+            RuntimeError: If there's a SQLAlchemy database-related error or an 
+            unexpected exception during the operation, a runtime error is 
+            raised with a detailed explanation.
+
+        """
+        try:
+            df = self.stock_query.fetch_dailychart_data(stock_id, start_date)
+
+            return df
+
+        except SQLAlchemyError as e:
+            raise RuntimeError(
+                f"Failed to get dailychart data due to database error: {e}") from e
+        except Exception as e:
+            raise RuntimeError(
+                f"Failed to get dailychart data due to an unexpected error: {e}") from e

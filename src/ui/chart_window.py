@@ -9,18 +9,13 @@ Created on 2024-04-18
 
 """
 
-import os
-import pandas as pd
-import numpy as np
-from plotly.offline import plot
-import plotly.graph_objects as go
+from datetime import datetime, timedelta
 from PyQt6.QtWidgets import QMainWindow
-from PyQt6.QtWebEngineWidgets import QWebEngineView
 from src.models.base import Session
 import src.ui.chart_window_UI as window
 from src.business_logic.fmp.database_reporting import StockReporting
+from src.services.plot import draw_a_plotly_candlestick_chart
 
-os.environ["QTWEBENGINE_DICTIONARIES_PATH"] = '/home/roland/Bureau/FMP-PostgreSQL-PyQt/.venv/lib/python3.11/site-packages/PyQt6/Qt6/libexec/qtwebengine_dictionaries' # pylint: disable=line-too-long
 
 class ChartWindow(QMainWindow, window.Ui_MainWindow):
     """Chart application window for the PyQt6 application.
@@ -123,30 +118,36 @@ class ChartWindow(QMainWindow, window.Ui_MainWindow):
             self.label_stock_symbol.clear()
             self.label_stock_id.clear()
 
-    def period_to_days(self, period_str: str) -> int:
-        """Convert a period string into an equivalent number of days.
+    def period_to_date(self, period_str: str) -> str:
+        """Convert a period string to a date that is the number of days before today.
 
         Args:
-            period_str (str): The period string to convert.
+            period_str (str): The period string to convert (e.g., '2 months').
 
         Returns:
-            int: The number of days corresponding to the period string, or 0 on error.
+            str: The date in 'YYYY-MM-DD' format corresponding to the current 
+            date minus the number of days, or '1985-01-01' on error.
         """
         try:
             # Split the string into number and period type
             num, unit = period_str.split()
             num = int(num)  # Convert the number part to an integer
 
-            # Define the average lengths
+            # Calculate the number of days from the period
             if 'month' in unit:
-                # Average days in a month
-                return num * 30
+                # Assume an average of 30 days per month
+                days = num * 30
             elif 'year' in unit:
-                # Average days in a year
-                return num * 365
+                # Assume an average of 365 days per year
+                days = num * 365
+
+            # Calculate the date by subtracting the calculated days from today's date
+            target_date = datetime.today() - timedelta(days=days)
+            # Format the date as 'YYYY-MM-DD'
+            return target_date.strftime('%Y-%m-%d')
+
         except ValueError:
-            # Return 0 if there's any error during parsing or conversion
-            return 0
+            return '1985-01-01'
 
     def period_changed(self, text: str) -> None:
         """Update the period setting when the period combo box value changes.
@@ -154,7 +155,7 @@ class ChartWindow(QMainWindow, window.Ui_MainWindow):
         Args:
             text (str): The new period text from the combo box.
         """
-        self.setting['period'] = self.period_to_days(text)
+        self.setting['period'] = self.period_to_date(text)
         self.handle_setting_validation()
 
     def interval_changed(self, text: str) -> None:
@@ -174,37 +175,11 @@ class ChartWindow(QMainWindow, window.Ui_MainWindow):
         self.handle_setting_validation()
 
     def handle_setting_validation(self):
-        """Validate the current settings and print them if they are complete."""
+        """Validate the current settings, get the data and display the charts."""
 
         if len(self.setting) == 4:
             print(self.setting)
-            self.draw_a_plotly_bar_plot()
+            df = self.stock_reporting.get_dailychart_data(
+                self.setting['stock_id'], self.setting['period'])
 
-    def draw_a_plotly_bar_plot(self):
-        """Draws a bar plot in the PyQt application using Plotly.
-        
-        This function creates a bar plot using Plotly based on hardcoded x and 
-        y values. It then displays this plot within a QWebEngineView that is 
-        inserted into the existing QVBoxLayout (`verticalLayout_plotly`).
-
-        """
-        # Prepare data
-        data = pd.DataFrame({
-            'x': 0.5 + np.arange(8),
-            'y': [4.8, 5.5, 3.5, 4.6, 6.5, 6.6, 2.6, 3.0]
-        })
-
-        # Create a Plotly figure
-        fig = go.Figure(
-            data=[go.Bar(x=data['x'], y=data['y'],
-            marker_line_color='white', marker_line_width=0.7)])
-
-        # Generate HTML representation of the Plotly figure
-        plot_html = plot(fig, output_type='div', include_plotlyjs='cdn')
-
-        # Create a QWebEngineView to display the HTML
-        webview = QWebEngineView()
-        webview.setHtml(plot_html)
-
-        # Add the QWebEngineView to the QVBoxLayout
-        self.verticalLayout_chart.addWidget(webview)
+            draw_a_plotly_candlestick_chart(self.verticalLayout_chart, df)

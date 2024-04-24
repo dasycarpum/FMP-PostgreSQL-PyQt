@@ -15,7 +15,11 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 import seaborn as sns
 import squarify
-from PyQt6.QtWidgets import QTableWidget, QTableWidgetItem, QHeaderView
+from plotly.offline import plot
+import plotly.graph_objects as go
+from PyQt6.QtWidgets import (QTableWidget, QTableWidgetItem, QHeaderView,
+     QVBoxLayout)
+from PyQt6.QtWebEngineWidgets import QWebEngineView
 
 
 def plot_boxplots(df: pd.DataFrame, variables: list) -> None:
@@ -524,4 +528,70 @@ def populate_tablewidget_with_df(table_widget: QTableWidget, df: pd.DataFrame):
             if isinstance(item_value, float) and item_value.is_integer():
                 item_value = int(item_value)
             table_widget.setItem(row, col, QTableWidgetItem(str(item_value)))
-    
+
+def clear_layout(layout):
+    """
+    Removes all widgets from a given layout and deletes them.
+
+    Args:
+        layout (QLayout): The layout from which to remove all widgets.
+    """
+    while layout.count():
+        item = layout.takeAt(0)
+        widget = item.widget()
+        if widget is not None:
+            widget.deleteLater()
+        elif item.layout() is not None:
+            clear_layout(item.layout())
+
+def draw_a_plotly_candlestick_chart(vertical_layout: QVBoxLayout,
+    df: pd.DataFrame):
+    """
+    Draws a candlestick chart in a PyQt application using Plotly and displays 
+    it within a QWebEngineView.
+
+    This function generates a candlestick chart for financial data provided in 
+    a DataFrame. The DataFrame must include columns for dates, opening prices, 
+    highest prices, lowest prices, and adjusted closing prices. The chart is 
+    then rendered to HTML and displayed using a QWebEngineView that is added to 
+    the given QVBoxLayout.
+
+    Args:
+        vertical_layout (QVBoxLayout): The QVBoxLayout to which the QWebEngineView will be added.
+        df (pd.DataFrame): A pandas DataFrame containing the financial data 
+        with columns named 'date', 'open', 'high', 'low', and 'close'. The 
+        'date' column must be convertible to datetime format if not already.
+
+    Raises:
+        ValueError: If the required columns ('date', 'open', 'high', 'low', 
+        'adj_close') are missing from the DataFrame.
+
+    """
+    # First clear the layout
+    clear_layout(vertical_layout)
+
+    # Check if all required columns are present in the DataFrame
+    required_columns = ['date', 'open', 'high', 'low', 'close']
+    if not all(column in df.columns for column in required_columns):
+        raise ValueError(f"DataFrame missing one of the required columns: {required_columns}")
+
+    # Ensure the date column is in the correct format
+    if df['date'].dtype != 'datetime64[ns]':
+        df['date'] = pd.to_datetime(df['date'])
+
+    # Create a Plotly figure with a candlestick graph
+    fig = go.Figure(data=[go.Candlestick(x=df['date'],
+                                            open=df['open'],
+                                            high=df['high'],
+                                            low=df['low'],
+                                            close=df['close'])])
+
+    # Generate HTML representation of the Plotly figure
+    plot_html = plot(fig, output_type='div', include_plotlyjs='cdn')
+
+    # Create a QWebEngineView to display the HTML
+    webview = QWebEngineView()
+    webview.setHtml(plot_html)
+
+    # Add the QWebEngineView to the QVBoxLayout
+    vertical_layout.addWidget(webview)
