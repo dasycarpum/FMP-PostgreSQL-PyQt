@@ -10,6 +10,7 @@ Created on 2024-04-18
 """
 
 from datetime import datetime, timedelta
+import pandas as pd
 from PyQt6.QtWidgets import QMainWindow
 from src.models.base import Session
 import src.ui.chart_window_UI as window
@@ -60,7 +61,12 @@ class ChartWindow(QMainWindow, window.Ui_MainWindow):
         self.comboBox_period.currentTextChanged.connect(self.period_changed)
         self.comboBox_interval.currentTextChanged.connect(self.interval_changed)
         self.checkBox_log_scale.stateChanged.connect(self.log_scale_changed)
-        self.pushButton_setting.clicked.connect(self.handle_setting_validation)
+        self.checkBox_bollinger.stateChanged.connect(self.bollinger_changed)
+        self.spinBox_window_size.valueChanged.connect(self.bollinger_changed)
+        self.doubleSpinBox_num_std.valueChanged.connect(self.bollinger_changed)
+        self.checkBox_sma.stateChanged.connect(self.moving_average_changed)
+        self.spinBox_sma_1.valueChanged.connect(self.moving_average_changed)
+        self.spinBox_sma_2.valueChanged.connect(self.moving_average_changed)
 
     def setup_charting(self) -> None:
         """Set up the initial charting configuration by initializing attributes"""
@@ -69,11 +75,13 @@ class ChartWindow(QMainWindow, window.Ui_MainWindow):
         self.stock_dict = self.stock_reporting.get_stock_dictionary()
         self.setting = {}
         self.setting['log_scale'] = False
+        self.setting['bollinger'] = False
+        self.setting['sma'] = False
 
-        period = ['3 months', '18 months', '3 years', '9 years', '18 years', 'max period']
-        interval = ['daily', 'weekly', 'monthly']
         # Populate the combo box with the updated table list
+        period = ['3 months', '18 months', '3 years', '9 years', '18 years', 'max period']
         self.comboBox_period.addItems(period)
+        interval = ['daily', 'weekly', 'monthly']
         self.comboBox_interval.addItems(interval)
 
     def on_text_changed(self, text: str) -> None :
@@ -174,12 +182,40 @@ class ChartWindow(QMainWindow, window.Ui_MainWindow):
         self.setting['log_scale'] = self.checkBox_log_scale.isChecked()
         self.handle_setting_validation()
 
+    def bollinger_changed(self) -> None:
+        """Toggle the Bollinger setting based on the checkbox state and spinbox values."""
+
+        self.setting['bollinger'] = self.checkBox_bollinger.isChecked()
+        self.setting['window_size'] = self.spinBox_window_size.value()
+        self.setting['num_std'] = self.doubleSpinBox_num_std.value()
+        self.handle_setting_validation()
+
+    def moving_average_changed(self) -> None:
+        """Toggle the moving average setting based on the checkbox state and spinbox values."""
+
+        self.setting['sma'] = self.checkBox_sma.isChecked()
+        self.setting['sma_1'] = self.spinBox_sma_1.value()
+        self.setting['sma_2'] = self.spinBox_sma_2.value()
+        self.handle_setting_validation()
+
     def handle_setting_validation(self):
         """Validate the current settings, get the data and display the charts."""
-
-        if len(self.setting) == 4:
-            print(self.setting)
+        required_keys = ['stock_id', 'period', 'interval']
+        if all(key in self.setting for key in required_keys): # Minimum settings are assigned
+            # Retrieve daily chart data for a stock from a starting date
             df = self.stock_reporting.get_dailychart_data(
                 self.setting['stock_id'], self.setting['period'])
 
-            draw_a_plotly_candlestick_chart(self.verticalLayout_chart, df)
+            # Convert the 'date' column to datetime and set it as the index
+            df['date'] = pd.to_datetime(df['date'])
+            df.set_index('date', inplace=True)
+
+            # Resample accordingly
+            if self.setting['interval'] != 'daily':
+                df = df.resample(self.setting['interval'][0].upper()).agg(
+                       {'open':'first','high':'max','low':'min','close':'last','volume':'sum'})
+            else:
+                df.sort_index(inplace=True)
+
+            # Draw a candlestick chart
+            draw_a_plotly_candlestick_chart(self.verticalLayout_chart, df, self.setting)

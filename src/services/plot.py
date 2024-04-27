@@ -16,6 +16,7 @@ from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 import seaborn as sns
 import squarify
 from plotly.offline import plot
+from plotly.subplots import make_subplots
 import plotly.graph_objects as go
 from PyQt6.QtWidgets import (QTableWidget, QTableWidgetItem, QHeaderView,
      QVBoxLayout)
@@ -31,16 +32,8 @@ def plot_boxplots(df: pd.DataFrame, variables: list) -> None:
         variables (list of str): A list of strings representing the column 
         names for which boxplots are to be generated.
 
-    Returns:
-        None. Displays the boxplots of the specified variables.
-
     Raises:
         ValueError: If any of the specified variables are not found in the DataFrame.
-
-    Examples:
-        >>> plot_boxplots(df, ['beta', 'vol_avg', 'mkt_cap'])
-        This will display boxplots for the 'beta', 'vol_avg', and 'mkt_cap' 
-        columns from the DataFrame df.
 
     """
     # Check if all specified variables exist in the DataFrame
@@ -75,9 +68,6 @@ def plot_distributions_png(df: pd.DataFrame, variables: list,
         variables (list of str): A list of strings representing the column 
         names for which distributions are to be generated.
         title (str) : : The title of the histogram chart.
-
-    Returns:
-        None. Displays the distributions of the specified variables.
 
     Raises:
         ValueError: If any of the specified variables are not found in the DataFrame.
@@ -123,9 +113,6 @@ def plot_distributions_widget(canvas: FigureCanvasQTAgg, df: pd.DataFrame,
         names for which distributions are to be generated.
         title (str): The title of the histogram chart.
 
-    Returns:
-        None. Plots the distributions of the specified variables on the canvas.
-
     Raises:
         ValueError: If any of the specified variables are not found in the DataFrame.
     """
@@ -169,9 +156,6 @@ def display_correlation_matrix(df: pd.DataFrame, variables: list) -> None:
         variables (list of str): A list of strings representing the names of 
         the columns for which the correlation matrix is calculated.
 
-    Returns:
-        None. Displays the correlation matrix.
-
     Raises:
         ValueError: If one of the specified columns is not found in the DataFrame.
 
@@ -193,7 +177,8 @@ def display_correlation_matrix(df: pd.DataFrame, variables: list) -> None:
 
     plt.savefig('figure/correlation_matrix.png')
 
-def plot_scatterplot(df: pd.DataFrame, x_var: str, y_var: str, hue_var: str):
+def plot_scatterplot(df: pd.DataFrame, x_var: str, y_var: str,
+    hue_var: str) -> None:
     """
     Generates a scatter plot from the specified columns of a DataFrame, using a 
     third column to tint the points.
@@ -203,9 +188,6 @@ def plot_scatterplot(df: pd.DataFrame, x_var: str, y_var: str, hue_var: str):
         x_var (str): The name of the column to be used for the X axis.
         y_var (str): The name of the column to be used for the Y axis.
         hue_var (str): The name of the column to be used to tint points according to their values.
-
-    Returns:
-        None. Displays the scatter plot.
 
     """
     # Check existence of columns in DataFrame
@@ -227,7 +209,7 @@ def plot_scatterplot(df: pd.DataFrame, x_var: str, y_var: str, hue_var: str):
     plt.savefig('figure/scatterplot.png')
 
 def plot_horizontal_barchart_png(df: pd.DataFrame, x_var: str, y_var:str,
-    title: str):
+    title: str) -> None:
     """
     Plots a horizontal bar chart from a pandas DataFrame with annotations for each bar.
 
@@ -244,9 +226,6 @@ def plot_horizontal_barchart_png(df: pd.DataFrame, x_var: str, y_var:str,
         y-axis. Represents the labels of each bar.
         - title (str): The title of the bar chart.
     
-    Returns:
-        None
-
     Raises:
         - ValueError: If the specified columns (x_var or y_var) do not exist in the DataFrame.
 
@@ -276,7 +255,7 @@ def plot_horizontal_barchart_png(df: pd.DataFrame, x_var: str, y_var:str,
     plt.savefig('figure/horizontal_barchart.png')
 
 def plot_horizontal_barchart_widget(canvas: FigureCanvasQTAgg,
-    df: pd.DataFrame, x_var: str, y_var:str, title: str):
+    df: pd.DataFrame, x_var: str, y_var:str, title: str) -> None:
     """
     Plots a horizontal bar chart from a pandas DataFrame with annotations for 
     each bar onto a provided canvas.
@@ -295,9 +274,6 @@ def plot_horizontal_barchart_widget(canvas: FigureCanvasQTAgg,
         y-axis. Represents the labels of each bar.
         - title (str): The title of the bar chart.
     
-    Returns:
-        None
-
     Raises:
         - ValueError: If the specified columns (x_var or y_var) do not exist in the DataFrame.
     """
@@ -353,9 +329,6 @@ def plot_treemap_png(df: pd.DataFrame, title: str) -> None:
         numeric values (counts) and the other contains corresponding labels.
         - title (str): The title of the treemap plot.
 
-    Returns:
-        None
-
     """
     # Ensure the DataFrame has exactly two columns
     if df.shape[1] != 2:
@@ -397,8 +370,6 @@ def plot_treemap_widget(canvas: FigureCanvasQTAgg, df: pd.DataFrame,
           numeric values (counts) and the other contains corresponding labels.
         - title (str): The title of the treemap plot.
 
-    Returns:
-        None
     """
     # Ensure the DataFrame has exactly two columns
     if df.shape[1] != 2:
@@ -430,7 +401,7 @@ def plot_treemap_widget(canvas: FigureCanvasQTAgg, df: pd.DataFrame,
     canvas.draw()
 
 def plot_grouped_barchart_widget(canvas: FigureCanvasQTAgg, df: pd.DataFrame,
-    title: str):
+    title: str) -> None:
     """
     Plots a grouped bar chart from a pandas DataFrame onto a provided canvas.
     Each group (column) will have bars for 'True' and 'False' side by side.
@@ -441,8 +412,6 @@ def plot_grouped_barchart_widget(canvas: FigureCanvasQTAgg, df: pd.DataFrame,
         column represents a group, and each row (True/False) represents sub-categories.
         - title (str): The title of the bar chart.
     
-    Returns:
-        None
     """
     # Clear any existing plot on the canvas
     canvas.figure.clf()
@@ -488,7 +457,8 @@ def plot_grouped_barchart_widget(canvas: FigureCanvasQTAgg, df: pd.DataFrame,
     canvas.figure.tight_layout()
     canvas.draw()
 
-def populate_tablewidget_with_df(table_widget: QTableWidget, df: pd.DataFrame):
+def populate_tablewidget_with_df(table_widget: QTableWidget,
+    df: pd.DataFrame)  -> None:
     """
     Populates a QTableWidget with data from a Pandas DataFrame using the 
     DataFrame's column indices as headers. It ensures all data displayed are 
@@ -501,10 +471,6 @@ def populate_tablewidget_with_df(table_widget: QTableWidget, df: pd.DataFrame):
         used as headers for the QTableWidget.
         table_widget (QTableWidget): The QTableWidget instance to be populated 
         with data from the DataFrame.
-
-    Returns:
-        None: This function does not return anything but directly modifies the
-            QTableWidget passed as an argument.
 
     Raises:
         This function currently does not raise exceptions but will fail if df 
@@ -529,7 +495,7 @@ def populate_tablewidget_with_df(table_widget: QTableWidget, df: pd.DataFrame):
                 item_value = int(item_value)
             table_widget.setItem(row, col, QTableWidgetItem(str(item_value)))
 
-def clear_layout(layout):
+def clear_layout(layout) -> None:
     """
     Removes all widgets from a given layout and deletes them.
 
@@ -544,47 +510,187 @@ def clear_layout(layout):
         elif item.layout() is not None:
             clear_layout(item.layout())
 
+def calculate_macd(df: pd.DataFrame, short_span: int=12, long_span: int=26,
+    signal_span: int=9) -> (pd.Series, pd.Series):
+    """
+    Calculate the MACD and Signal line indicators
+    
+    """
+    exp1 = df['close'].ewm(span=short_span, adjust=False).mean()
+    exp2 = df['close'].ewm(span=long_span, adjust=False).mean()
+    macd = exp1 - exp2
+    signal = macd.ewm(span=signal_span, adjust=False).mean()
+
+    return macd, signal
+
+def calculate_bollinger_bands(df: pd.DataFrame, window_size: int=20,
+    num_std: float=2.0) -> pd.DataFrame:
+    """
+    Calculate Bollinger Bands for the given DataFrame.
+    
+    """
+    df['rolling_mean'] = df['close'].rolling(window=window_size).mean()
+    df['rolling_std'] = df['close'].rolling(window=window_size).std()
+    df['upper_band'] = df['rolling_mean'] + (df['rolling_std'] * num_std)
+    df['lower_band'] = df['rolling_mean'] - (df['rolling_std'] * num_std)
+
+    return df
+
+def add_bollinger_bands_to_chart(fig: go.Figure, df: pd.DataFrame,
+    row: int, col: int) -> None:
+    """
+    Add Bollinger Bands to the Plotly figure.
+    
+    """
+    # Add the Upper Bollinger Band to the chart
+    fig.add_trace(go.Scatter(x=df.index, y=df['upper_band'],
+                             line=dict(width=1),
+                             name='Upper Band',
+                             line_color='rgba(68, 68, 68, 0.75)',
+                             showlegend=False),
+                  row=row, col=col)
+
+    # Add the Lower Bollinger Band to the chart
+    fig.add_trace(go.Scatter(x=df.index, y=df['lower_band'],
+                             line=dict(width=1),
+                             name='Lower Band',
+                             fill='tonexty',
+                             fillcolor='rgba(68, 68, 68, 0.1)',
+                             line_color='rgba(68, 68, 68, 0.75)',
+                             showlegend=False),
+                  row=row, col=col)
+
+def add_moving_average_to_chart(fig: go.Figure, df: pd.DataFrame, sma: str,
+    row: int, col: int) -> None:
+    """
+    Add simple moving average to the Plotly figure.
+    
+    """
+    if sma == 'SMA_1':
+        color = 'rgba(68, 68, 68, 0.75)'
+    else:
+        color = 'white'
+
+    fig.add_trace(go.Scatter(x=df.index, y=df[sma],
+                             mode='lines',
+                             line=dict(color=color, width=2),
+                             showlegend=False),
+                  row=row, col=col)
+
 def draw_a_plotly_candlestick_chart(vertical_layout: QVBoxLayout,
-    df: pd.DataFrame):
+    df: pd.DataFrame, setting: dict):
     """
     Draws a candlestick chart in a PyQt application using Plotly and displays 
     it within a QWebEngineView.
 
-    This function generates a candlestick chart for financial data provided in 
-    a DataFrame. The DataFrame must include columns for dates, opening prices, 
-    highest prices, lowest prices, and adjusted closing prices. The chart is 
-    then rendered to HTML and displayed using a QWebEngineView that is added to 
-    the given QVBoxLayout.
+    This function generates a candlestick chart, along with additional 
+    technical indicators, for financial data provided in a DataFrame. The chart 
+    is then rendered to HTML and displayed using a QWebEngineView that is added 
+    to the given QVBoxLayout.
 
     Args:
-        vertical_layout (QVBoxLayout): The QVBoxLayout to which the QWebEngineView will be added.
-        df (pd.DataFrame): A pandas DataFrame containing the financial data 
-        with columns named 'date', 'open', 'high', 'low', and 'close'. The 
-        'date' column must be convertible to datetime format if not already.
+        vertical_layout (QVBoxLayout): The layout where the chart will be displayed.
+        df (pd.DataFrame): The data frame containing the stock data with at 
+        least the following columns: ['open', 'high', 'low', 'close', 'volume'].
+        setting (dict): Configuration settings for the chart, which may include:
+            - 'log_scale' (bool): If True, apply logarithmic scale to the y-axis.
+            - 'bollinger' (bool): If True, add Bollinger Bands to the chart.
+            - 'window_size' (int): Window size for calculating Bollinger Bands.
+            - 'num_std' (int): Number of standard deviations for Bollinger width.
+            - 'sma' (bool): If True, add Simple Moving Averages to the chart.
+            - 'sma_1' (int): Window size for the first SMA.
+            - 'sma_2' (int): Window size for the second SMA (only applied if greater than 0).
+            - 'interval' (str): Data interval, affects x-axis formatting.
 
     Raises:
-        ValueError: If the required columns ('date', 'open', 'high', 'low', 
-        'adj_close') are missing from the DataFrame.
+        ValueError: If 'df' is missing any of the required columns.
 
     """
     # First clear the layout
     clear_layout(vertical_layout)
 
     # Check if all required columns are present in the DataFrame
-    required_columns = ['date', 'open', 'high', 'low', 'close']
+    required_columns = ['open', 'high', 'low', 'close', 'volume']
     if not all(column in df.columns for column in required_columns):
         raise ValueError(f"DataFrame missing one of the required columns: {required_columns}")
 
-    # Ensure the date column is in the correct format
-    if df['date'].dtype != 'datetime64[ns]':
-        df['date'] = pd.to_datetime(df['date'])
+    # Calculate MACD and Signal Line
+    macd, signal = calculate_macd(df)
 
-    # Create a Plotly figure with a candlestick graph
-    fig = go.Figure(data=[go.Candlestick(x=df['date'],
-                                            open=df['open'],
-                                            high=df['high'],
-                                            low=df['low'],
-                                            close=df['close'])])
+    # Create a subplot figure with 2 rows
+    fig = make_subplots(rows=3, cols=1, shared_xaxes=True,
+                        vertical_spacing=0.03,
+                        row_heights=[0.6, 0.15, 0.25])
+
+    # Add the Candlestick chart
+    fig.add_trace(go.Candlestick(x=df.index,
+                                 open=df['open'],
+                                 high=df['high'],
+                                 low=df['low'],
+                                 close=df['close'],
+                                 increasing=dict(line=dict(color='white', width=1)),
+                                 decreasing=dict(line=dict(color='black', width=1)),
+                                 showlegend=False),
+                  row=1, col=1)
+
+    # Add Volume Bar Chart
+    fig.add_trace(go.Bar(x=df.index,
+                         y=df['volume'],
+                         marker_color='lightgrey',
+                         showlegend=False),
+                  row=2, col=1)
+
+    # Add MACD and Signal Line
+    fig.add_trace(go.Scatter(x=df.index, y=macd, mode='lines',
+                            name='MACD', line=dict(color='black'),
+                            showlegend=False),
+                  row=3, col=1)
+    fig.add_trace(go.Scatter(x=df.index, y=signal, mode='lines',
+                            name='Signal Line', line=dict(color='white'), showlegend=False),
+                  row=3, col=1)
+
+    # Option : logarithmic scale
+    if setting['log_scale']:
+        fig.update_yaxes(type="log", row=1, col=1)
+
+    # Technical indicator : Bollinger bands
+    if setting['bollinger']:
+        # Calculate Bollinger bands
+        df = calculate_bollinger_bands(
+            df, window_size=setting['window_size'], num_std=setting['num_std'])
+
+        # Add Bollinger Bands
+        add_bollinger_bands_to_chart(fig, df, 1, 1)
+
+    # Technical indicator : simple moving average
+    if setting['sma']:
+        # Calculate SMA
+        df['SMA_1'] = df['close'].rolling(window=setting['sma_1']).mean()
+        # Add SMA 1
+        add_moving_average_to_chart(fig, df, 'SMA_1', 1, 1)
+        if setting['sma_2'] > 0:
+            df['SMA_2'] = df['close'].rolling(
+                window=setting['sma_2']).mean()
+            # Add SMA 2
+            add_moving_average_to_chart(fig, df, 'SMA_2', 1, 1)
+
+    # Update layout
+    fig.update_layout(
+        xaxis_rangeslider_visible=False,
+        yaxis_title="Price",
+        yaxis2_title="Volume",
+        yaxis3_title="MACD",
+        paper_bgcolor='lightgrey',
+        plot_bgcolor='grey',
+        xaxis=dict(showgrid=True, gridwidth=1, gridcolor='lightgrey'),
+        yaxis=dict(showgrid=True, gridwidth=1, gridcolor='lightgrey'),
+        yaxis2=dict(showgrid=True, gridwidth=1, gridcolor='lightgrey'),
+        yaxis3=dict(showgrid=True, gridwidth=1, gridcolor='lightgrey')
+    )
+
+    # Update x axes
+    if setting['interval'] == 'daily':
+        fig.update_xaxes(rangebreaks=[dict(bounds=["sat", "mon"])])
 
     # Generate HTML representation of the Plotly figure
     plot_html = plot(fig, output_type='div', include_plotlyjs='cdn')
