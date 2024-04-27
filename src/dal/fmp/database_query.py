@@ -847,3 +847,95 @@ class StockQuery:
         finally:
             # Close session in all cases (on success or failure)
             self.db_session.close()
+
+    def fetch_stock_dictionary(self) -> dict[int, list[str]]:
+        """Fetches stock data and returns it as a dictionary.
+
+        This function executes a SQL query that retrieves stock identifiers, 
+        names, symbols, and ISINs from a database. It right joins the 
+        `stocksymbol` table with the `sxxp` table on stock id. The data is then 
+        converted into a dictionary where each key is the stock id and the 
+        value is a list containing the stock name, symbol, and ISIN.
+
+        Returns:
+            dict[int, list[str]]: A dictionary mapping stock ids to a list of 
+            attributes (name, symbol, ISIN).
+
+        Raises:
+            RuntimeError: If an error occurs during the database operation.
+
+        """
+        try:
+            query = text("""
+            SELECT ss.id, name, symbol, isin 
+            FROM stocksymbol ss
+            RIGHT JOIN sxxp ON ss.id = sxxp.stock_id;
+            """)
+
+            data = self.db_session.execute(query).fetchall()
+
+            # Creating the dictionary from fetched data
+            stock_dict = {item.id: [item.name, item.symbol, item.isin] for item in data}
+
+            return stock_dict
+
+        except SQLAlchemyError as e:
+            # Rollback the transaction in case of an error
+            self.db_session.rollback()
+            raise RuntimeError(f"An error occurred: {e}") from e
+
+        finally:
+            # Close session in all cases (on success or failure)
+            self.db_session.close()
+
+    def fetch_dailychart_data(self, stock_id: int, start_date: str) -> pd.DataFrame :
+        """
+        Retrieves daily chart data from a database for a specified stock 
+        starting from a given date.
+
+        This function queries a database table 'dailychart' to fetch all 
+        entries for a given stock ID that are on or after a specified start 
+        date. The data is returned as a pandas DataFrame. If the query does not 
+        return any results, an empty DataFrame with appropriate column names is 
+        returned.
+
+        Args:
+            stock_id (int): The ID of the stock for which to retrieve chart data.
+            start_date (str): The starting date from which to retrieve the data (inclusive).
+
+        Returns:
+            pd.DataFrame: A DataFrame containing the queried daily chart data. 
+            The DataFrame will have columns corresponding to the database table structure.
+
+        Raises:
+            RuntimeError: If an error occurs during database access, the error 
+            is logged and a runtime error with the error message is raised. 
+            Also includes a rollback of the database transaction to avoid 
+            corrupt data.
+
+        """
+        try:
+            query = text(f"""
+            SELECT * FROM dailychart
+            WHERE stock_id = {stock_id}
+                AND date >= '{start_date}' 
+            """)
+
+            result = self.db_session.execute(query)
+            fetched_data = result.fetchall()  # Fetch data once to avoid cursor exhaustion
+
+            # Check if fetched data is not empty
+            if fetched_data:
+                df = pd.DataFrame(fetched_data)
+                df.columns = result.keys()  # Set columns only if data is fetched
+            else:
+                df = pd.DataFrame(columns=result.keys())  # Create an empty df with column names
+
+            return df
+
+        except SQLAlchemyError as e:
+            self.db_session.rollback()  # Rollback the transaction in case of an error
+            raise RuntimeError(f"An error occurred: {e}") from e
+
+        finally:
+            self.db_session.close()  # Close session in all cases (on success or failure)
