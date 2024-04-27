@@ -160,6 +160,8 @@ class Ui_MainWindow(object):
         self.action_env_file.setObjectName("action_env_file")
         self.action_chart_window = QtGui.QAction(parent=MainWindow)
         self.action_chart_window.setObjectName("action_chart_window")
+        self.action_finance_window = QtGui.QAction(parent=MainWindow)
+        self.action_finance_window.setObjectName("action_finance_window")
         self.menu_postgresql.addAction(self.action_postgresql_install)
         self.menu_postgresql.addAction(self.action_postgresql_update)
         self.menuHelp.addAction(self.menu_postgresql.menuAction())
@@ -181,6 +183,7 @@ class Ui_MainWindow(object):
         self.menuFMP_Database.addAction(self.menu_fetch_initial_data.menuAction())
         self.menuFMP_Database.addAction(self.menuUpdate_time_data.menuAction())
         self.menuTools.addAction(self.action_chart_window)
+        self.menuTools.addAction(self.action_finance_window)
         self.menubar.addAction(self.menuHelp.menuAction())
         self.menubar.addAction(self.menuFMP_Database.menuAction())
         self.menubar.addAction(self.menuTools.menuAction())
@@ -232,7 +235,8 @@ class Ui_MainWindow(object):
         self.action_postgresql_update.setText(_translate("MainWindow", "Update"))
         self.action_report_tables.setText(_translate("MainWindow", "Report on tables"))
         self.action_env_file.setText(_translate("MainWindow", "Environment file"))
-        self.action_chart_window.setText(_translate("MainWindow", "Open chart window..."))
+        self.action_chart_window.setText(_translate("MainWindow", "Chart studies"))
+        self.action_finance_window.setText(_translate("MainWindow", "Finance analysis"))
 
 
 if __name__ == "__main__":
