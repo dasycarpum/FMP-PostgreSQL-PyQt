@@ -939,3 +939,55 @@ class StockQuery:
 
         finally:
             self.db_session.close()  # Close session in all cases (on success or failure)
+
+    def fetch_dividend_data(self, stock_id: int) -> pd.DataFrame:
+        """
+        Fetches dividend data for a specified stock ID from the database.
+
+        This method retrieves all entries from the 'dividend' table where the 
+        stock_id matches the provided stock_id. The function executes a SQL 
+        query, fetches the result, and converts it into a pandas DataFrame. If 
+        no data is found, it returns an empty DataFrame with the appropriate 
+        column headers. Any SQL-related errors trigger a rollback, and the
+        session is closed after fetching the data or upon an error.
+
+        Args:
+            stock_id (int): The ID of the stock for which to retrieve dividend data.
+
+        Returns:
+            pd.DataFrame: A DataFrame containing the fetched dividend data. 
+            Columns correspond to those in the 'dividend' database table. The 
+            DataFrame will be empty if no records are found.
+
+        Raises:
+            RuntimeError: An error occurs during the database query or 
+            transaction, such as connection issues or SQL syntax errors. The 
+            error message from SQLAlchemy is included in the raised 
+            RuntimeError.
+
+        """
+        try:
+            query = text(f"""
+            SELECT * FROM dividend
+            WHERE stock_id = {stock_id} 
+            """)
+
+            result = self.db_session.execute(query)
+            fetched_data = result.fetchall()  # Fetch data once to avoid cursor exhaustion
+
+            # Check if fetched data is not empty
+            if fetched_data:
+                df = pd.DataFrame(fetched_data)
+                df.columns = result.keys()  # Set columns only if data is fetched
+            else:
+                df = pd.DataFrame(columns=result.keys())  # Create an empty df with column names
+
+            return df
+
+        except SQLAlchemyError as e:
+            self.db_session.rollback()  # Rollback the transaction in case of an error
+            raise RuntimeError(f"An error occurred: {e}") from e
+
+        finally:
+            self.db_session.close()  # Close session in all cases (on success or failure)
+  

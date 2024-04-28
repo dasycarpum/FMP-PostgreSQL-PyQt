@@ -13,6 +13,7 @@ from PyQt6.QtWidgets import QMainWindow
 from src.models.base import Session
 import src.ui.finance_window_UI as window
 from src.business_logic.fmp.database_reporting import StockReporting
+from src.services import plot
 
 
 class FinanceWindow(QMainWindow, window.Ui_MainWindow):
@@ -56,6 +57,7 @@ class FinanceWindow(QMainWindow, window.Ui_MainWindow):
         """Set up the signal connections for the UI elements."""
         self.lineEdit_search.textChanged.connect(self.on_text_changed)
         self.pushButton_stock.clicked.connect(self.handle_stock_validation)
+        self.spinBox_dividend.valueChanged.connect(self.handle_stock_validation)
 
     def setup_finance(self) -> None:
         """Set up the initial configuration by initializing attributes"""
@@ -111,4 +113,8 @@ class FinanceWindow(QMainWindow, window.Ui_MainWindow):
         Validate the current stock, get the data and display chart + table.
         
         """
-        print(self.setting['stock_id'])
+        df = self.stock_reporting.get_dividend_data(
+            self.setting['stock_id'], self.spinBox_dividend.value())
+
+        plot.plot_vertical_barchart(self.widget_dividend.canvas, df,
+                                    'year', 'dividend', "Historical dividends")

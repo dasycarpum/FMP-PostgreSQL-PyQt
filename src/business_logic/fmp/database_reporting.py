@@ -11,6 +11,7 @@ implementation details of data retrieval or database interaction.
 
 """
 
+from datetime import datetime
 import pandas as pd
 from sqlalchemy.exc import SQLAlchemyError
 from PyQt6.QtWidgets import QTableWidget
@@ -566,3 +567,68 @@ class StockReporting:
         except Exception as e:
             raise RuntimeError(
                 f"Failed to get dailychart data due to an unexpected error: {e}") from e
+
+    def get_dividend_data(self, stock_id: int, period: int=10) -> pd.DataFrame:
+        """
+        Retrieves and processes dividend data for a given stock ID, summing 
+        dividends annually over a specified period.
+
+        This method fetches raw dividend data for the specified stock ID by 
+        calling another method in the class that performs the SQL query. It 
+        then processes this data by converting dates from strings to datetime 
+        objects, extracting the year, and grouping the data by year and 
+        stock_id to sum the dividends for each year. It ensures that data for 
+        each year within the specified period is included, even if no dividends 
+        were paid, by filling such years with zeros.
+
+        Args:
+            stock_id (int): The ID of the stock for which to retrieve and 
+            process dividend data.
+            period (int, optional): The number of years from the current year 
+            backwards for which to calculate dividends. Defaults to 10 years.
+
+        Returns:
+            pd.DataFrame: A DataFrame with columns 'year', 'stock_id', and 
+            'dividend'. The 'dividend' column contains the sum of dividends 
+            paid each year, with years having no data filled with zero.
+
+        Raises:
+            RuntimeError: An error occurs during the database operation or 
+            during the data processing steps, including database connectivity 
+            issues, SQL errors, or unexpected issues during data manipulation 
+            in pandas. The specific error message is included in the exception.
+
+        """
+        try:
+            # Fetch dividend data for the specified stock_id
+            df = self.stock_query.fetch_dividend_data(stock_id)
+
+            # Convert 'date' to datetime
+            df['date'] = pd.to_datetime(df['date'])
+
+            # Extract year from 'date'
+            df['year'] = df['date'].dt.year
+
+            # Calculate the current year and determine the start year for the last 10 years
+            current_year = datetime.now().year
+            start_year = current_year - period
+
+            # Group by 'year' and 'stock_id', then sum 'dividend'
+            annual_dividend_sum = df.groupby(['year', 'stock_id'])['dividend'].sum().reset_index()
+
+            # Ensure all years in the last 10 years are represented in the DataFrame
+            all_years = pd.DataFrame({'year': range(start_year, current_year + 1)})
+            annual_dividend_sum = pd.merge(all_years, annual_dividend_sum, on='year', how='left')
+
+            # Fill missing 'stock_id' and 'dividend' values
+            annual_dividend_sum['stock_id'] = annual_dividend_sum['stock_id'].fillna(stock_id)
+            annual_dividend_sum['dividend'] = annual_dividend_sum['dividend'].fillna(0)
+
+            return annual_dividend_sum
+
+        except SQLAlchemyError as e:
+            raise RuntimeError(
+                f"Failed to get dividend data due to database error: {e}") from e
+        except Exception as e:
+            raise RuntimeError(
+                f"Failed to get dividend data due to an unexpected error: {e}") from e
