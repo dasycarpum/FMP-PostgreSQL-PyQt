@@ -113,8 +113,13 @@ class FinanceWindow(QMainWindow, window.Ui_MainWindow):
         Validate the current stock, get the data and display chart + table.
         
         """
-        df = self.stock_reporting.get_dividend_data(
+        # Display historical dividends
+        df_dividend = self.stock_reporting.get_dividend_data(
             self.setting['stock_id'], self.spinBox_dividend.value())
-
-        plot.plot_vertical_barchart(self.widget_dividend.canvas, df,
+        plot.plot_vertical_barchart(self.widget_dividend.canvas, df_dividend,
                                     'year', 'dividend', "Historical dividends")
+
+        # Display company profile
+        df_profile = self.stock_reporting.get_company_profile(
+            self.setting['stock_id'])
+        self.textBrowser_profile.setHtml(df_profile.to_html(index=False))

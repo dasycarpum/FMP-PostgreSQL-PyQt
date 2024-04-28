@@ -940,24 +940,25 @@ class StockQuery:
         finally:
             self.db_session.close()  # Close session in all cases (on success or failure)
 
-    def fetch_dividend_data(self, stock_id: int) -> pd.DataFrame:
+    def fetch_stock_data_from_table(self, sql_table: str, stock_id: int) -> pd.DataFrame:
         """
-        Fetches dividend data for a specified stock ID from the database.
+        Fetches data for a specified stock ID from a database table.
 
-        This method retrieves all entries from the 'dividend' table where the 
-        stock_id matches the provided stock_id. The function executes a SQL 
-        query, fetches the result, and converts it into a pandas DataFrame. If 
+        This method retrieves all entries from the table where the stock_id 
+        matches the provided stock_id. The function executes a SQL query, 
+        fetches the result, and converts it into a pandas DataFrame. If 
         no data is found, it returns an empty DataFrame with the appropriate 
         column headers. Any SQL-related errors trigger a rollback, and the
         session is closed after fetching the data or upon an error.
 
         Args:
-            stock_id (int): The ID of the stock for which to retrieve dividend data.
+            sql_table (str) : The name of the SQL table
+            stock_id (int): The ID of the stock for which to retrieve data.
 
         Returns:
-            pd.DataFrame: A DataFrame containing the fetched dividend data. 
-            Columns correspond to those in the 'dividend' database table. The 
-            DataFrame will be empty if no records are found.
+            pd.DataFrame: A DataFrame containing the fetched data. Columns 
+            correspond to those in the database table. The DataFrame will be 
+            empty if no records are found.
 
         Raises:
             RuntimeError: An error occurs during the database query or 
@@ -968,7 +969,7 @@ class StockQuery:
         """
         try:
             query = text(f"""
-            SELECT * FROM dividend
+            SELECT * FROM {sql_table}
             WHERE stock_id = {stock_id} 
             """)
 
@@ -990,4 +991,3 @@ class StockQuery:
 
         finally:
             self.db_session.close()  # Close session in all cases (on success or failure)
-  

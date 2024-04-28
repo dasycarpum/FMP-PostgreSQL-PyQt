@@ -601,7 +601,7 @@ class StockReporting:
         """
         try:
             # Fetch dividend data for the specified stock_id
-            df = self.stock_query.fetch_dividend_data(stock_id)
+            df = self.stock_query.fetch_stock_data_from_table('dividend',stock_id)
 
             # Convert 'date' to datetime
             df['date'] = pd.to_datetime(df['date'])
@@ -632,3 +632,39 @@ class StockReporting:
         except Exception as e:
             raise RuntimeError(
                 f"Failed to get dividend data due to an unexpected error: {e}") from e
+
+    def get_company_profile(self, stock_id: int) -> pd.DataFrame:
+        """
+        Retrieves the company profile for a given stock ID from the 
+        'companyprofile' table in the database.
+
+        This function fetches specific columns from the company profile data, 
+        including currency, sector, country, IPO date, and description.
+
+        Args:
+            stock_id (int): The unique identifier of the stock for which the 
+            company profile is to be retrieved.
+
+        Returns:
+            pd.DataFrame: A DataFrame containing the requested company profile 
+            information.
+
+        Raises:
+            RuntimeError: If there is a database-related error (handled by 
+            SQLAlchemyError) or another unexpected exception, a RuntimeError is 
+            raised with a description of the error.
+
+        """
+        try:
+            # Fetch company profile for the specified stock_id
+            df = self.stock_query.fetch_stock_data_from_table('companyprofile',stock_id)
+
+            return df[['currency', 'sector', 'country', 'ipo_date',
+                     'description']]
+
+        except SQLAlchemyError as e:
+            raise RuntimeError(
+                f"Failed to get company profile due to database error: {e}") from e
+        except Exception as e:
+            raise RuntimeError(
+                f"Failed to get company profile due to an unexpected error: {e}") from e
