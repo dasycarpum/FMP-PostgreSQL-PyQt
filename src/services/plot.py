@@ -484,6 +484,7 @@ def populate_tablewidget_with_df(table_widget: QTableWidget,
 
     # Set the headers in the QTableWidget using the column names of the DataFrame
     table_widget.setHorizontalHeaderLabels([str(col) for col in df.columns])
+    table_widget.setVerticalHeaderLabels([str(idx) for idx in df.index])
     table_widget.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
 
     # Populate the QTableWidget with the data

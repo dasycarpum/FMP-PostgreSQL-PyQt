@@ -9,11 +9,13 @@ Created on 2024-04-27
 
 """
 
-from PyQt6.QtWidgets import QMainWindow
+from PyQt6.QtWidgets import QMainWindow, QMessageBox
 from src.models.base import Session
 import src.ui.finance_window_UI as window
+from src.dal.fmp.database_query import StockQuery
 from src.business_logic.fmp.database_reporting import StockReporting
 from src.services import plot
+from src.services.various import CheckableComboBox
 
 
 class FinanceWindow(QMainWindow, window.Ui_MainWindow):
@@ -58,6 +60,12 @@ class FinanceWindow(QMainWindow, window.Ui_MainWindow):
         self.lineEdit_search.textChanged.connect(self.on_text_changed)
         self.pushButton_stock.clicked.connect(self.handle_stock_validation)
         self.spinBox_dividend.valueChanged.connect(self.handle_stock_validation)
+        self.radioButton_quarter.clicked.connect(self.handle_stock_validation)
+        self.radioButton_annual.clicked.connect(self.handle_stock_validation)
+        self.spinBox_metrics.valueChanged.connect(self.handle_stock_validation)
+        self.comboBox_metrics.textHighlighted.connect(
+            self.handle_stock_validation)
+
 
     def setup_finance(self) -> None:
         """Set up the initial configuration by initializing attributes"""
@@ -65,6 +73,15 @@ class FinanceWindow(QMainWindow, window.Ui_MainWindow):
         self.stock_reporting = StockReporting(self.db_session)
         self.stock_dict = self.stock_reporting.get_stock_dictionary()
         self.setting = {}
+        self.stock_query = StockQuery(self.db_session)
+        self.spinBox_metrics.setSuffix(' quarters')
+        keymetrics_columns = self.stock_query.get_keymetrics_columns()
+        self.comboBox_metrics = CheckableComboBox(self) # pylint: disable=invalid-name
+        self.comboBox_metrics.setPlaceholderText('Full list')
+        for metric in keymetrics_columns[5:]:
+            is_checked = metric in ['pe_ratio', 'pb_ratio', 'dividend_yield', 'roe']
+            self.comboBox_metrics.add_check_item(metric, is_checked)
+        self.verticalLayout_metrics.addWidget(self.comboBox_metrics)
 
     def on_text_changed(self, text: str) -> None :
         """
@@ -110,16 +127,33 @@ class FinanceWindow(QMainWindow, window.Ui_MainWindow):
 
     def handle_stock_validation(self):
         """
-        Validate the current stock, get the data and display chart + table.
+        Validate the current stock, get the data and display chart + tables.
         
         """
-        # Display historical dividends
-        df_dividend = self.stock_reporting.get_dividend_data(
-            self.setting['stock_id'], self.spinBox_dividend.value())
-        plot.plot_vertical_barchart(self.widget_dividend.canvas, df_dividend,
-                                    'year', 'dividend', "Historical dividends")
+        if self.setting.get('stock_id') is not None:
+            # Draw historical dividends
+            df_dividend = self.stock_reporting.get_dividend_data(
+                self.setting['stock_id'], self.spinBox_dividend.value())
+            plot.plot_vertical_barchart(self.widget_dividend.canvas,
+                df_dividend, 'year', 'dividend', "Historical dividends")
 
-        # Display company profile
-        df_profile = self.stock_reporting.get_company_profile(
-            self.setting['stock_id'])
-        self.textBrowser_profile.setHtml(df_profile.to_html(index=False))
+            # Display company profile
+            df_profile = self.stock_reporting.get_company_profile(
+                self.setting['stock_id'])
+            self.textBrowser_profile.setHtml(df_profile.to_html(index=False))
+
+            # Populate historical key metrics
+            quarter = True
+            if self.radioButton_quarter.isChecked():
+                self.spinBox_metrics.setSuffix(' quarters')
+            else:
+                self.spinBox_metrics.setSuffix(' years')
+                quarter = False
+
+            key_metrics = self.comboBox_metrics.checked_items()
+            df_metrics = self.stock_reporting.get_key_metric_data(
+                self.setting['stock_id'], key_metrics, quarter, self.spinBox_metrics.value())
+            plot.populate_tablewidget_with_df(self.tableWidget_key_metrics,
+                df_metrics)
+        else:
+            QMessageBox.warning(self, "ID problem !", "A stock identifier is required.")

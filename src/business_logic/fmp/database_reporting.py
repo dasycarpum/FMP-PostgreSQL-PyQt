@@ -668,3 +668,74 @@ class StockReporting:
         except Exception as e:
             raise RuntimeError(
                 f"Failed to get company profile due to an unexpected error: {e}") from e
+
+    def get_key_metric_data(self, stock_id: int, key_metrics: list[str],
+        quarter: bool, nb_of_period: int=10) -> pd.DataFrame:
+        """
+        Retrieves and computes statistical metrics for specified financial key 
+        metrics from the database for a given stock.
+
+        This function fetches the stock data for the given `stock_id`, and 
+        calculates various statistical metrics for the requested key metrics 
+        over the specified number of periods.
+
+        Args:
+            stock_id (int): The ID of the stock for which the key metrics are to be fetched.
+            key_metrics (list[str]): A list of strings specifying which key 
+            metrics to fetch and compute statistics for.
+            quarter (bool): A boolean flag to indicate whether the data should 
+            be considered quarterly or annually.
+            nb_of_period (int, optional): The number of latest periods to 
+            consider for the metrics. Defaults to 10.
+
+        Returns:
+            pd.DataFrame: A DataFrame containing statistical metrics for the 
+            requested key metrics such as:
+                - 'first date': the earliest date in the data
+                - 'max': maximum value of each metric
+                - 'min': minimum value of each metric
+                - 'mean': mean of each metric
+                - 'median': median of each metric
+                - 'std': standard deviation of each metric
+                - 'last date': the most recent date in the data
+                - 'last value': the last recorded value of each metric
+
+        Raises:
+            RuntimeError: If there is a database-related error (handled by 
+            SQLAlchemyError) or another unexpected exception, a RuntimeError is 
+            raised with a description of the error.
+
+        """
+        try:
+            # Fetch key metrics for the specified stock_id
+            df_ = self.stock_query.fetch_stock_data_from_table('keymetrics',stock_id)
+
+            # Sort the DataFrame by date descending
+            df_sorted = df_.sort_values(by='date', ascending=False)
+
+            # Select the last x records
+            df_last_ = df_sorted.head(nb_of_period)
+
+            # Select only key metrics list, and set 'date' as the index
+            df = df_last_.set_index('date')[key_metrics]
+
+            # Calculating the statistics
+            stats = pd.DataFrame({
+                'first date': df.index.min(),
+                'min': round(df.min(),2),
+                'max': round(df.max(), 2),
+                'mean': round(df.mean(),2),
+                'median': round(df.median(), 2),
+                'std' : round(df.std(), 2),
+                'last date': df.index.max(),
+                'last value' : round(df.iloc[-1], 2)
+            })
+
+            return stats
+
+        except SQLAlchemyError as e:
+            raise RuntimeError(
+                f"Failed to get key metric data due to database error: {e}") from e
+        except Exception as e:
+            raise RuntimeError(
+                f"Failed to get key metric data due to an unexpected error: {e}") from e
