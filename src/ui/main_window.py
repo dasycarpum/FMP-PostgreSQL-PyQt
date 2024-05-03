@@ -82,7 +82,10 @@ class MainWindow(QMainWindow, window.Ui_MainWindow):
         self.action_fetch_stoxx_europe.triggered.connect(self.fetch_fmp_data)
         self.action_fetch_company_profile.triggered.connect(self.fetch_fmp_data)
         self.action_fetch_dividend.triggered.connect(self.fetch_fmp_data)
-        self.action_fetch_key_metrics.triggered.connect(self.fetch_fmp_data)
+        self.action_fetch_key_metrics_annual.triggered.connect(
+            self.fetch_fmp_data)
+        self.action_fetch_key_metrics_quarter.triggered.connect(
+            self.fetch_fmp_data)
         self.action_fetch_daily_chart.triggered.connect(self.fetch_fmp_data)
         self.action_update_stoxx_europe.triggered.connect(self.fetch_fmp_data)
         self.action_update_dividend.triggered.connect(self.fetch_fmp_data)

@@ -684,7 +684,7 @@ class StockReporting:
             key_metrics (list[str]): A list of strings specifying which key 
             metrics to fetch and compute statistics for.
             quarter (bool): A boolean flag to indicate whether the data should 
-            be considered quarterly or annually.
+            be considered quarterly (True) or annually (False).
             nb_of_period (int, optional): The number of latest periods to 
             consider for the metrics. Defaults to 10.
 
@@ -710,6 +710,12 @@ class StockReporting:
             # Fetch key metrics for the specified stock_id
             df_ = self.stock_query.fetch_stock_data_from_table('keymetrics',stock_id)
 
+            # Select the period : quarter or annual
+            if quarter:
+                df_ = df_.loc[df_['period'] != 'FY']
+            else:
+                df_ = df_.loc[df_['period'] == 'FY']
+
             # Sort the DataFrame by date descending
             df_sorted = df_.sort_values(by='date', ascending=False)
 
@@ -722,13 +728,13 @@ class StockReporting:
             # Calculating the statistics
             stats = pd.DataFrame({
                 'first date': df.index.min(),
-                'min': round(df.min(),2),
-                'max': round(df.max(), 2),
-                'mean': round(df.mean(),2),
-                'median': round(df.median(), 2),
-                'std' : round(df.std(), 2),
+                'min': round(df.min(),3),
+                'max': round(df.max(), 3),
+                'mean': round(df.mean(),3),
+                'median': round(df.median(), 3),
+                'std' : round(df.std(), 3),
                 'last date': df.index.max(),
-                'last value' : round(df.iloc[-1], 2)
+                'last value' : round(df.iloc[0], 3)
             })
 
             return stats

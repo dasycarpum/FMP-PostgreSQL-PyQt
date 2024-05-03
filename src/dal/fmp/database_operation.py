@@ -370,7 +370,7 @@ class StockManager:
 		                mkt_cap=item.get("mktCap"),
                         currency=item.get("currency"),
                         cik=str(item.get("cik")),  # Convert to string
-                        isin = item.get("isin").strip() if item.get("isin") is not None else None, # Deleting superfluous characters such as'\t'
+                        isin = item.get("isin").strip() if item.get("isin") is not None else None, # Deleting superfluous characters such as'\t' # pylint: disable=line-too-long
                         cusip=str(item.get("cusip")),  # Same as cik
                         industry=item.get("industry"),
                         website=item.get("website"),
@@ -873,7 +873,8 @@ class StockManager:
                     )
 
                     # Use insertion with ON CONFLICT DO NOTHING to avoid duplicate entries
-                    stmt = stmt.on_conflict_do_nothing(index_elements=['stock_id', 'date'])
+                    stmt = stmt.on_conflict_do_nothing(
+                        index_elements=['stock_id', 'date', 'period'])
                     self.db_session.execute(stmt)
 
                 else:

@@ -74,7 +74,6 @@ class FinanceWindow(QMainWindow, window.Ui_MainWindow):
         self.stock_dict = self.stock_reporting.get_stock_dictionary()
         self.setting = {}
         self.stock_query = StockQuery(self.db_session)
-        self.spinBox_metrics.setSuffix(' quarters')
         keymetrics_columns = self.stock_query.get_keymetrics_columns()
         self.comboBox_metrics = CheckableComboBox(self) # pylint: disable=invalid-name
         self.comboBox_metrics.setPlaceholderText('Full list')
