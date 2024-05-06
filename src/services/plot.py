@@ -18,6 +18,7 @@ import squarify
 from plotly.offline import plot
 from plotly.subplots import make_subplots
 import plotly.graph_objects as go
+import plotly.express as px
 from PyQt6.QtWidgets import (QTableWidget, QTableWidgetItem, QHeaderView,
      QVBoxLayout)
 from PyQt6.QtWebEngineWidgets import QWebEngineView
@@ -753,3 +754,54 @@ def plot_vertical_barchart(canvas: FigureCanvasQTAgg, df: pd.DataFrame,
 
     canvas.figure.tight_layout()  # Adjust layout to prevent overlap
     canvas.draw()  # Refresh the canvas with the new plot
+
+def draw_a_plotly_scatter_plot(vertical_layout: QVBoxLayout,
+    df: pd.DataFrame) -> None:
+    """
+    Creates and displays a scatter plot using Plotly in a specified 
+    QVBoxLayout. The function clears any existing widgets in the layout, 
+    creates a scatter plot from the provided DataFrame, and embeds it within 
+    the layout as a QWebEngineView.
+
+    Args:
+        vertical_layout (QVBoxLayout): The layout where the plot will be 
+        displayed. It is cleared at the beginning to ensure that only the 
+        current plot is displayed.
+        df (pd.DataFrame): The DataFrame containing the data to plot. This 
+        DataFrame should have at least four columns, where the second column is 
+        used for the x-axis, the third for the y-axis, the fourth for the size 
+        of the scatter plot points, and the first column for color coding and labeling.
+
+    """
+    # First clear the layout
+    clear_layout(vertical_layout)
+
+    # Create a plot figure
+    fig = px.scatter(df,
+                     x=df.columns[1],
+                     y=df.columns[2],
+                     size=df.columns[3],
+                     title=f"Point size = {df.columns[3]}",
+                     color=df.columns[0], # to give different colors to points
+                     text=df.columns[0],
+                     size_max=60)  # Maximum marker size
+
+    # Tweak layout to better accommodate text
+    fig.update_traces(textposition='top center', textfont=dict(size=9))
+
+    # Hide the legend
+    fig.update_layout(
+        title_font=dict(size=12),
+        showlegend=False,  # Turn off the legend
+        hovermode="closest"
+    )
+
+    # Generate HTML representation of the Plotly figure
+    plot_html = plot(fig, output_type='div', include_plotlyjs='cdn')
+
+    # Create a QWebEngineView to display the HTML
+    webview = QWebEngineView()
+    webview.setHtml(plot_html)
+
+    # Add the QWebEngineView to the QVBoxLayout
+    vertical_layout.addWidget(webview)

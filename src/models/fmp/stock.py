@@ -312,7 +312,9 @@ class HistoricalKeyMetrics(Base):
         symbol associated with the key metrics.
 
     Constraints:
-        __table_args__ : A unique constraint is applied to the `stock_id`, `date` and `period` fields to ensure there are no duplicate entries for the same stock on the same date.
+        __table_args__ : A unique constraint is applied to the `stock_id`, 
+        `date` and `period` fields to ensure there are no duplicate entries for 
+        the same stock on the same date.
 
     """
     __tablename__ = 'keymetrics'

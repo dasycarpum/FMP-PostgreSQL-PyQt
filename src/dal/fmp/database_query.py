@@ -991,3 +991,129 @@ class StockQuery:
 
         finally:
             self.db_session.close()  # Close session in all cases (on success or failure)
+
+    def fetch_companyprofile_data(self) -> pd.DataFrame:
+        """Fetches STOXX Europe 600 index company profiles.
+
+        This function executes a SQL query that retrieves stock identifiers, 
+        currency, sector and country  from a database. It right joins the 
+        `companyprofile` table with the `sxxp` table on stock id. The data is 
+        then converted into a DataFrame.
+
+        Returns:
+            pd.DataFrame: A DataFrame containing the fetched data. Columns 
+            correspond to those in the database table.
+
+        Raises:
+            RuntimeError: If an error occurs during the database operation.
+
+        """
+        try:
+            query = text("""
+            SELECT cp.stock_id, currency, sector, country
+            FROM companyprofile cp
+            RIGHT JOIN sxxp ON cp.stock_id = sxxp.stock_id;
+            """)
+
+            result = self.db_session.execute(query)
+            fetched_data = result.fetchall()
+
+            df = pd.DataFrame(fetched_data)
+            df.columns = result.keys()
+
+            return df
+
+        except SQLAlchemyError as e:
+            # Rollback the transaction in case of an error
+            self.db_session.rollback()
+            raise RuntimeError(f"An error occurred: {e}") from e
+
+        finally:
+            # Close session in all cases (on success or failure)
+            self.db_session.close()
+
+    def fetch_sector_study_data(self, setting: dict) -> pd.DataFrame:
+        """
+        Fetches and returns a DataFrame containing stock and key metrics data 
+        for a specified sector, filtered by country and currency using given 
+        settings.
+
+        This function constructs and executes a SQL query based on the provided 
+        settings which include a list of countries, currencies, a sector, and 
+        specific metrics. The result is converted into a DataFrame before being 
+        returned. If an error occurs during the database operation, it raises
+        a RuntimeError and rolls back the transaction.
+
+        Args:
+            setting (dict): A dictionary containing:
+                - country (list of str): List of countries to filter the data.
+                - currency (list of str): List of currencies to filter the data.
+                - sector (str): The sector to filter the data.
+                - metric_x (str): The specific key metric to be included in the output as a column.
+                - metric_y (str): Another specific key metric to be included in 
+                the output as a column.
+                - metric_size (str): A third key metric to be included in the output as a column.
+
+        Returns:
+            pd.DataFrame: A DataFrame containing the query results with columns 
+            for each stock symbol and the specified metrics. The DataFrame will 
+            have columns if data is fetched; otherwise, it will be empty but 
+            with column names set.
+
+        Raises:
+            RuntimeError: An error that encapsulates any exceptions thrown 
+            during the execution, typically database-related errors like 
+            connection or syntax issues in the SQL.
+
+        """
+        try:
+            # Prepare country and currency lists for SQL IN clause
+            country_list = ", ".join([f"'{country}'" for country in setting['country']])
+            currency_list = ", ".join([f"'{currency}'" for currency in setting['currency']])
+
+            # Construct the SQL query using safe string formatting
+            query = text(f"""
+            SELECT 
+                stocksymbol.id,
+                stocksymbol.symbol,
+                stocksymbol.name,
+                companyprofile.country,
+                companyprofile.currency,
+                keymetrics.date,
+                keymetrics.period,
+                keymetrics.{setting['metric_x']},
+                keymetrics.{setting['metric_y']},
+                keymetrics.{setting['metric_size']}
+            FROM 
+                stocksymbol
+            JOIN 
+                companyprofile ON stocksymbol.id = companyprofile.stock_id
+            JOIN 
+                keymetrics ON stocksymbol.id = keymetrics.stock_id
+            WHERE 
+                companyprofile.sector = '{setting['sector']}'
+                AND companyprofile.country IN ({country_list})
+                AND companyprofile.currency IN ({currency_list});
+
+            """)
+
+            result = self.db_session.execute(query)
+            fetched_data = result.fetchall()  # Fetch data once to avoid cursor exhaustion
+
+            # Check if fetched data is not empty
+            if fetched_data:
+                df = pd.DataFrame(fetched_data)
+                df.columns = result.keys()  # Set columns only if data is fetched
+            else:
+                df = pd.DataFrame(columns=result.keys())  # Create an empty df with column names
+
+            return df
+
+        except SQLAlchemyError as e:
+            # Rollback the transaction in case of an error
+            self.db_session.rollback()
+            raise RuntimeError(f"An error occurred: {e}") from e
+
+        finally:
+            # Close session in all cases (on success or failure)
+            self.db_session.close()

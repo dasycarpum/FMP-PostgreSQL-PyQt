@@ -57,6 +57,7 @@ class FinanceWindow(QMainWindow, window.Ui_MainWindow):
 
     def setup_signal_connections(self) -> None:
         """Set up the signal connections for the UI elements."""
+        # Stock details : first tab
         self.lineEdit_search.textChanged.connect(self.on_text_changed)
         self.pushButton_stock.clicked.connect(self.handle_stock_validation)
         self.spinBox_dividend.valueChanged.connect(self.handle_stock_validation)
@@ -66,11 +67,17 @@ class FinanceWindow(QMainWindow, window.Ui_MainWindow):
         self.comboBox_metrics.textHighlighted.connect(
             self.handle_stock_validation)
 
+        # Sector study : second tab
+        self.radioButton_quarter_sector.clicked.connect(self.period_changed)
+        self.radioButton_annual_sector.clicked.connect(self.period_changed)
+        self.pushButton_sector.clicked.connect(self.handle_study_validation)
 
     def setup_finance(self) -> None:
         """Set up the initial configuration by initializing attributes"""
         self.db_session = Session()
         self.stock_reporting = StockReporting(self.db_session)
+
+        # Stock details : first tab
         self.stock_dict = self.stock_reporting.get_stock_dictionary()
         self.setting = {}
         self.stock_query = StockQuery(self.db_session)
@@ -81,6 +88,23 @@ class FinanceWindow(QMainWindow, window.Ui_MainWindow):
             is_checked = metric in ['pe_ratio', 'pb_ratio', 'dividend_yield', 'roe']
             self.comboBox_metrics.add_check_item(metric, is_checked)
         self.verticalLayout_metrics.addWidget(self.comboBox_metrics)
+
+        # Sector study : second tab
+        self.df_company = self.stock_reporting.get_distinct_company_profiles()
+        self.comboBox_sector.addItems(sorted(self.df_company['sector'].unique()))
+        self.comboBox_country = CheckableComboBox(self) # pylint: disable=invalid-name
+        self.comboBox_country.setPlaceholderText('Countries (optional)')
+        for country in sorted(self.df_company['country'].unique()):
+            self.comboBox_country.add_check_item(country)
+        self.verticalLayout_country.addWidget(self.comboBox_country)
+        self.comboBox_currency = CheckableComboBox(self) # pylint: disable=invalid-name
+        self.comboBox_currency.setPlaceholderText('Currencies (optional)')
+        for currency in sorted(self.df_company['currency'].unique()):
+            self.comboBox_currency.add_check_item(currency)
+        self.verticalLayout_currency.addWidget(self.comboBox_currency)
+        self.comboBox_metric_x.addItems(keymetrics_columns[5:])
+        self.comboBox_metric_y.addItems(keymetrics_columns[5:])
+        self.comboBox_metric_size.addItems(keymetrics_columns[5:])
 
     def on_text_changed(self, text: str) -> None :
         """
@@ -156,3 +180,40 @@ class FinanceWindow(QMainWindow, window.Ui_MainWindow):
                 df_metrics)
         else:
             QMessageBox.warning(self, "ID problem !", "A stock identifier is required.")
+
+    def period_changed(self):
+        """Update the period spinbox suffix when the period radioButton check changes. """
+        if self.radioButton_quarter_sector.isChecked():
+            self.spinBox_metrics_sector.setSuffix('-quarter average')
+        else:
+            self.spinBox_metrics_sector.setSuffix('-year average')
+
+
+    def handle_study_validation(self):
+        """
+        Validate the current setting for sector study, get the data and display chart + table.
+        
+        """
+        setting = {}
+        setting['sector'] = self.comboBox_sector.currentText()
+        setting['country'] = self.comboBox_country.checked_items()
+        if not setting['country']:
+            setting['country'] = list(self.df_company['country'].unique())
+        setting['currency'] = self.comboBox_currency.checked_items()
+        if not setting['currency']:
+            setting['currency'] = list(self.df_company['currency'].unique())
+        setting['metric_x'] = self.comboBox_metric_x.currentText()
+        setting['metric_y'] = self.comboBox_metric_y.currentText()
+        setting['metric_size'] = self.comboBox_metric_size.currentText()
+        setting['period'] = (self.radioButton_annual_sector.text()
+            if self.radioButton_annual_sector.isChecked()
+            else self.radioButton_quarter_sector.text())
+        setting['nb_of_period'] = self.spinBox_metrics_sector.value()
+
+        if any(not value for value in setting.values()):
+            QMessageBox.warning(
+                self, "Setting problem !", "All non-optional parameters are required.")
+        else:
+            df = self.stock_reporting.get_sector_study_data(setting)
+            plot.draw_a_plotly_scatter_plot(self.verticalLayout_plot, df)
+            plot.populate_tablewidget_with_df(self.tableWidget_sector, df)

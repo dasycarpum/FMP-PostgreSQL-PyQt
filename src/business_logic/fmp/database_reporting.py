@@ -745,3 +745,103 @@ class StockReporting:
         except Exception as e:
             raise RuntimeError(
                 f"Failed to get key metric data due to an unexpected error: {e}") from e
+
+    def get_distinct_company_profiles(self) -> pd.DataFrame:
+        """
+        Retrieves a DataFrame containing the profiles of companies listed in 
+        the STOXX Europe 600 index. This function queries the database for 
+        company profile data, and returns the results directly as a DataFrame.
+
+        Returns:
+            pd.DataFrame: A DataFrame containing the distinct profiles of 
+            companies, including details such as company ID, sector, currency 
+            and country.
+
+        Raises:
+            RuntimeError: An error encapsulating any exceptions thrown during 
+            the execution, particularly database-related issues such as 
+            connectivity or syntax errors in SQL queries, or other unexpected exceptions.
+
+        """
+        try:
+            # Fetch STOXX Europe 600 index company profiles
+            df = self.stock_query.fetch_companyprofile_data()
+
+            return df
+
+        except SQLAlchemyError as e:
+            raise RuntimeError(
+                f"Failed to get distinct company profiles due to database error: {e}") from e
+        except Exception as e:
+            raise RuntimeError(
+                f"Failed to get distinct company profiles due to an unexpected error: {e}") from e
+
+    def get_sector_study_data(self, setting: dict) -> pd.DataFrame:
+        """
+        Retrieves and processes sector-specific study data based on 
+        user-defined settings, such as period type and number of periods. This 
+        function fetches the data from the database, filters it according to 
+        the specified period ('quarterly' or 'annual'), and computes the median
+        of the last three metrics for each stock symbol over the most recent 
+        periods specified.
+
+        Args:
+            setting (dict): A dictionary containing the configuration for 
+            fetching and processing the data:
+                - period (str): The period type to filter the data. Values can 
+                be 'quarter' for quarterly data excluding fiscal year (FY) or 
+                'FY' for annual data.
+                - nb_of_period (int): The number of recent periods to consider 
+                for each stock symbol.
+                - other keys : For fetching the data
+        
+        Returns:
+            pd.DataFrame: A DataFrame where each row represents a stock symbol, 
+            and columns include the symbol and the median values of the 3 
+            metrics from the data fetched, processed, and grouped by the symbol.
+
+        Raises:
+            RuntimeError: An error encapsulating any exceptions thrown during 
+            the execution, particularly database-related issues like 
+            connectivity or syntax errors in SQL queries, or other unexpected exceptions.
+
+        """
+        try:
+            # Fetch sector study data
+            df = self.stock_query.fetch_sector_study_data(setting)
+
+            # Select the period : quarter or annual
+            if setting['period'] == 'quarter':
+                df = df.loc[df['period'] != 'FY']
+            else:
+                df = df.loc[df['period'] == 'FY']
+
+            # Function to sort by date and return the top x rows
+            def get_top_recent(group):
+                return group.sort_values(by='date', ascending=False).head(setting['nb_of_period'])
+
+            # Apply the function to each symbol
+            df_recent = df.groupby('symbol').apply(get_top_recent)
+            df_recent.reset_index(drop=True, inplace=True)
+
+            # Get the names of the last three columns
+            last_3_columns = df_recent.columns[-3:]
+
+            # Group by the 'symbol' column and calculate the median for the last three columns
+            result_df = df_recent.groupby('symbol').agg(
+                {col: 'median' for col in last_3_columns})
+
+            # Resetting index if you want 'symbol' as a column and not an index
+            result_df.reset_index(inplace=True)
+
+            # Round only the floating point columns to 3 decimal places
+            result_df[result_df.select_dtypes(include=['float']).columns] = result_df.select_dtypes(include=['float']).round(3) # pylint: disable=line-too-long
+
+            return result_df
+
+        except SQLAlchemyError as e:
+            raise RuntimeError(
+                f"Failed to get sector study data due to database error: {e}") from e
+        except Exception as e:
+            raise RuntimeError(
+                f"Failed to get sector study data due to an unexpected error: {e}") from e
