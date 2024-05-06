@@ -312,9 +312,9 @@ class HistoricalKeyMetrics(Base):
         symbol associated with the key metrics.
 
     Constraints:
-        __table_args__ : A unique constraint (_keymetrics_stockid_date_uc) is 
-        applied to the `stock_id` and `date` fields to ensure there are no 
-        duplicate entries for the same stock on the same date.
+        __table_args__ : A unique constraint is applied to the `stock_id`, 
+        `date` and `period` fields to ensure there are no duplicate entries for 
+        the same stock on the same date.
 
     """
     __tablename__ = 'keymetrics'
@@ -384,9 +384,9 @@ class HistoricalKeyMetrics(Base):
 
     stocksymbol = relationship("StockSymbol", back_populates="keymetrics")
 
-    # Add a unique constraint for stock_id and date
-    __table_args__ = (UniqueConstraint('stock_id', 'date',
-                      name='_keymetrics_stockid_date_uc'),)
+    # Add a unique constraint for stock_id, date and period
+    __table_args__ = (UniqueConstraint('stock_id', 'date', 'period',
+                      name='_keymetrics_stockid_date_period_uc'),)
 
 class STOXXEurope600(Base):
     """Represents the STOXX Europe 600 index within a database, detailing each stock's involvement.

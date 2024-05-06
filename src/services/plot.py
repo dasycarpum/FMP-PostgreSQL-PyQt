@@ -18,6 +18,7 @@ import squarify
 from plotly.offline import plot
 from plotly.subplots import make_subplots
 import plotly.graph_objects as go
+import plotly.express as px
 from PyQt6.QtWidgets import (QTableWidget, QTableWidgetItem, QHeaderView,
      QVBoxLayout)
 from PyQt6.QtWebEngineWidgets import QWebEngineView
@@ -484,6 +485,7 @@ def populate_tablewidget_with_df(table_widget: QTableWidget,
 
     # Set the headers in the QTableWidget using the column names of the DataFrame
     table_widget.setHorizontalHeaderLabels([str(col) for col in df.columns])
+    table_widget.setVerticalHeaderLabels([str(idx) for idx in df.index])
     table_widget.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
 
     # Populate the QTableWidget with the data
@@ -691,6 +693,108 @@ def draw_a_plotly_candlestick_chart(vertical_layout: QVBoxLayout,
     # Update x axes
     if setting['interval'] == 'daily':
         fig.update_xaxes(rangebreaks=[dict(bounds=["sat", "mon"])])
+
+    # Generate HTML representation of the Plotly figure
+    plot_html = plot(fig, output_type='div', include_plotlyjs='cdn')
+
+    # Create a QWebEngineView to display the HTML
+    webview = QWebEngineView()
+    webview.setHtml(plot_html)
+
+    # Add the QWebEngineView to the QVBoxLayout
+    vertical_layout.addWidget(webview)
+
+def plot_vertical_barchart(canvas: FigureCanvasQTAgg, df: pd.DataFrame,
+    x_var: str, y_var: str, title: str) -> None:
+    """
+    Plots a vertical bar chart on a specified matplotlib canvas with annotations.
+
+    This function takes a pandas DataFrame and plots a vertical bar chart on a 
+    given FigureCanvasQTAgg. Each bar in the chart is annotated with its value 
+    above the bar. The plot is drawn on a single subplot within the canvas.
+
+    Args:
+        canvas (FigureCanvasQTAgg): The canvas on which the bar chart will be 
+        drawn. This should be an instance of FigureCanvasQTAgg from the 
+        matplotlib backend for Qt.
+        df (pd.DataFrame): DataFrame containing the data to plot. Must include 
+        specified columns for x-axis and y-axis values.
+        x_var (str): The name of the column in DataFrame to be used as the 
+        x-axis values. Typically, this is a categorical variable.
+        y_var (str): The name of the column in DataFrame to be used for the 
+        y-axis values. This is usually a numerical variable representing the 
+        height of the bars.
+        title (str): The title of the plot.
+        
+    Raises:
+        ValueError: If the specified x_var or y_var columns do not exist in the DataFrame.
+
+    """
+    # Ensure the specified columns exist in the DataFrame
+    if x_var not in df.columns or y_var not in df.columns:
+        raise ValueError(f"The DataFrame must contain the columns '{x_var}' and '{y_var}'.")
+
+    # Clear the existing figure to prepare for a new plot
+    canvas.figure.clf()
+    ax = canvas.figure.add_subplot(111)  # Create an axes instance in the figure
+
+    # Create the vertical bar chart directly on the provided axes
+    bars = ax.bar(df[x_var], df[y_var], color='grey')
+
+    # Annotate each bar with its value
+    for bar_ in bars:
+        height = bar_.get_height()
+        ax.text(bar_.get_x() + bar_.get_width() / 2, height, f'{height:.1f}',
+                va='bottom', ha='center', fontsize=6
+            )  # Vertically align bottom which is actually above the bar
+
+    ax.set_xlabel(x_var)
+    ax.set_ylabel(y_var)
+    ax.set_title(title)
+
+    canvas.figure.tight_layout()  # Adjust layout to prevent overlap
+    canvas.draw()  # Refresh the canvas with the new plot
+
+def draw_a_plotly_scatter_plot(vertical_layout: QVBoxLayout,
+    df: pd.DataFrame) -> None:
+    """
+    Creates and displays a scatter plot using Plotly in a specified 
+    QVBoxLayout. The function clears any existing widgets in the layout, 
+    creates a scatter plot from the provided DataFrame, and embeds it within 
+    the layout as a QWebEngineView.
+
+    Args:
+        vertical_layout (QVBoxLayout): The layout where the plot will be 
+        displayed. It is cleared at the beginning to ensure that only the 
+        current plot is displayed.
+        df (pd.DataFrame): The DataFrame containing the data to plot. This 
+        DataFrame should have at least four columns, where the second column is 
+        used for the x-axis, the third for the y-axis, the fourth for the size 
+        of the scatter plot points, and the first column for color coding and labeling.
+
+    """
+    # First clear the layout
+    clear_layout(vertical_layout)
+
+    # Create a plot figure
+    fig = px.scatter(df,
+                     x=df.columns[1],
+                     y=df.columns[2],
+                     size=df.columns[3],
+                     title=f"Point size = {df.columns[3]}",
+                     color=df.columns[0], # to give different colors to points
+                     text=df.columns[0],
+                     size_max=60)  # Maximum marker size
+
+    # Tweak layout to better accommodate text
+    fig.update_traces(textposition='top center', textfont=dict(size=9))
+
+    # Hide the legend
+    fig.update_layout(
+        title_font=dict(size=12),
+        showlegend=False,  # Turn off the legend
+        hovermode="closest"
+    )
 
     # Generate HTML representation of the Plotly figure
     plot_html = plot(fig, output_type='div', include_plotlyjs='cdn')

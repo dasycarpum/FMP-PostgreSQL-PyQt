@@ -21,6 +21,7 @@ import src.ui.main_window_UI as window
 from src.ui.worker import Worker
 from src.ui.mplwidget import MplWidget
 from src.ui.chart_window import ChartWindow
+from src.ui.finance_window import FinanceWindow
 
 
 class MainWindow(QMainWindow, window.Ui_MainWindow):
@@ -63,6 +64,7 @@ class MainWindow(QMainWindow, window.Ui_MainWindow):
         self.stock_reporting = StockReporting(self.db_session)
         self.worker = None
         self.chart_window = None
+        self.finance_window = None
 
         self.setup_reporting()
         self.setup_signal_connections()
@@ -80,7 +82,10 @@ class MainWindow(QMainWindow, window.Ui_MainWindow):
         self.action_fetch_stoxx_europe.triggered.connect(self.fetch_fmp_data)
         self.action_fetch_company_profile.triggered.connect(self.fetch_fmp_data)
         self.action_fetch_dividend.triggered.connect(self.fetch_fmp_data)
-        self.action_fetch_key_metrics.triggered.connect(self.fetch_fmp_data)
+        self.action_fetch_key_metrics_annual.triggered.connect(
+            self.fetch_fmp_data)
+        self.action_fetch_key_metrics_quarter.triggered.connect(
+            self.fetch_fmp_data)
         self.action_fetch_daily_chart.triggered.connect(self.fetch_fmp_data)
         self.action_update_stoxx_europe.triggered.connect(self.fetch_fmp_data)
         self.action_update_dividend.triggered.connect(self.fetch_fmp_data)
@@ -94,6 +99,7 @@ class MainWindow(QMainWindow, window.Ui_MainWindow):
         self.stock_service.update_signal.connect(
             self.update_text_browser_process)
         self.action_chart_window.triggered.connect(self.open_chart_window)
+        self.action_finance_window.triggered.connect(self.open_finance_window)
 
     def set_pdf_to_open(self):
         """
@@ -733,3 +739,20 @@ class MainWindow(QMainWindow, window.Ui_MainWindow):
 
         except Exception as e:  # pylint: disable=broad-except
             print(f"Failed to open the chart window: {str(e)}")
+
+    def open_finance_window(self):
+        """
+        Opens the finance window.
+
+        This method creates and shows an instance of FinanceWindow. It includes 
+        error handling to manage potential issues during window initialization and display.
+
+        Args:
+            None
+        """
+        try:
+            self.finance_window = FinanceWindow(self)
+            self.finance_window.show()
+
+        except Exception as e:  # pylint: disable=broad-except
+            print(f"Failed to open the finance window: {str(e)}")
