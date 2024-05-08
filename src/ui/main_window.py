@@ -87,11 +87,9 @@ class MainWindow(QMainWindow, window.Ui_MainWindow):
             self.fetch_fmp_data)
         self.action_fetch_key_metrics_quarter.triggered.connect(
             self.fetch_fmp_data)
-        self.action_fetch_daily_chart.triggered.connect(self.fetch_fmp_data)
-        self.action_update_stoxx_europe.triggered.connect(self.fetch_fmp_data)
-        self.action_update_dividend.triggered.connect(self.fetch_fmp_data)
-        self.action_update_key_metrics.triggered.connect(self.fetch_fmp_data)
-        self.action_update_daily_chart.triggered.connect(self.fetch_fmp_data)
+        self.action_historical_daily_chart.triggered.connect(
+            self.fetch_fmp_data)
+        self.action_update_daily_chart_.triggered.connect(self.fetch_fmp_data)
         self.action_backup.triggered.connect(self.create_dump)
         self.comboBox_reporting.currentTextChanged.connect(
             self.choice_reporting)
