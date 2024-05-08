@@ -425,10 +425,8 @@ class MainWindow(QMainWindow, window.Ui_MainWindow):
 
         """
         table_list = self.stock_reporting.table_list.copy()
-        # Insert a prompt for the user at the start of the list
-        table_list.insert(0, "------ Choice a table ------")
         # Insert an option to select all tables for reporting
-        table_list.insert(1, "Tables performance")
+        table_list.insert(0, "PostgreSQL table performance")
 
         # Populate the combo box with the updated table list
         self.comboBox_reporting.addItems(table_list)
@@ -450,7 +448,7 @@ class MainWindow(QMainWindow, window.Ui_MainWindow):
 
         help_text = ""
 
-        if highlighted_text == "Tables performance":
+        if highlighted_text == "PostgreSQL table performance":
             help_text = "Generate a performance report for each table in the database"
         elif highlighted_text == "sxxp":
             help_text = "Generates plots to report on the STOXX Europe 600 index components"
@@ -483,7 +481,7 @@ class MainWindow(QMainWindow, window.Ui_MainWindow):
         QApplication.setOverrideCursor(QCursor(Qt.CursorShape.WaitCursor))
 
         try:
-            if current_text == "Tables performance":
+            if current_text == "PostgreSQL table performance":
                 self.display_performance_all_tables()
             else:
                 self.display_report_table(current_text)

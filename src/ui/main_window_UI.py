@@ -207,8 +207,9 @@ class Ui_MainWindow(object):
         _translate = QtCore.QCoreApplication.translate
         MainWindow.setWindowTitle(_translate("MainWindow", "FMP-PostgreSQL-PyQt"))
         self.groupBox.setTitle(_translate("MainWindow", "Reporting"))
+        self.comboBox_reporting.setPlaceholderText(_translate("MainWindow", "Choosing a table for a report"))
         self.tabWidget_reporting.setTabText(self.tabWidget_reporting.indexOf(self.tab_process), _translate("MainWindow", "Process"))
-        self.tabWidget_reporting.setTabText(self.tabWidget_reporting.indexOf(self.tab_tables), _translate("MainWindow", "Tables performance"))
+        self.tabWidget_reporting.setTabText(self.tabWidget_reporting.indexOf(self.tab_tables), _translate("MainWindow", "Performance"))
         self.pushButton_query_clear.setText(_translate("MainWindow", "Clear"))
         self.pushButton_query_ok.setText(_translate("MainWindow", "Validation"))
         self.label_query.setText(_translate("MainWindow", "Write a SELECT SQL query (without quotes) :"))
