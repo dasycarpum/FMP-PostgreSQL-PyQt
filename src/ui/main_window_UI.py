@@ -166,6 +166,8 @@ class Ui_MainWindow(object):
         self.action_fetch_key_metrics_quarter.setObjectName("action_fetch_key_metrics_quarter")
         self.action_fetch_key_metrics_annual = QtGui.QAction(parent=MainWindow)
         self.action_fetch_key_metrics_annual.setObjectName("action_fetch_key_metrics_annual")
+        self.action_backup = QtGui.QAction(parent=MainWindow)
+        self.action_backup.setObjectName("action_backup")
         self.menu_postgresql.addAction(self.action_postgresql_install)
         self.menu_postgresql.addAction(self.action_postgresql_update)
         self.menuHelp.addAction(self.menu_postgresql.menuAction())
@@ -186,8 +188,11 @@ class Ui_MainWindow(object):
         self.menuUpdate_time_data.addAction(self.action_update_daily_chart)
         self.menuFMP_Database.addAction(self.action_create_new_database)
         self.menuFMP_Database.addAction(self.action_create_tables)
+        self.menuFMP_Database.addSeparator()
         self.menuFMP_Database.addAction(self.menu_fetch_initial_data.menuAction())
         self.menuFMP_Database.addAction(self.menuUpdate_time_data.menuAction())
+        self.menuFMP_Database.addSeparator()
+        self.menuFMP_Database.addAction(self.action_backup)
         self.menuTools.addAction(self.action_chart_window)
         self.menuTools.addAction(self.action_finance_window)
         self.menubar.addAction(self.menuHelp.menuAction())
@@ -245,6 +250,7 @@ class Ui_MainWindow(object):
         self.action_finance_window.setText(_translate("MainWindow", "Finance analysis"))
         self.action_fetch_key_metrics_quarter.setText(_translate("MainWindow", "Quarter"))
         self.action_fetch_key_metrics_annual.setText(_translate("MainWindow", "Annual"))
+        self.action_backup.setText(_translate("MainWindow", "Backup..."))
 
 
 if __name__ == "__main__":
