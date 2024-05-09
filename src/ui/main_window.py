@@ -11,12 +11,13 @@ Created on 2024-04-01
 
 import os
 from PyQt6.QtWidgets import (QMainWindow, QMenu, QInputDialog, QLineEdit,
-    QMessageBox, QApplication, QTableWidget, QTableWidgetItem, QHeaderView, QTabWidget)
+    QMessageBox, QApplication, QTableWidget, QTableWidgetItem, QHeaderView, QTabWidget, QFileDialog)
 from PyQt6.QtGui import QDesktopServices, QCursor
 from PyQt6.QtCore import QUrl, Qt, QThread
 from src.models.base import Session
 from src.business_logic.fmp.database_process import DBService, StockService
 from src.business_logic.fmp.database_reporting import StockReporting
+from src.services.sql import backup_database
 import src.ui.main_window_UI as window
 from src.ui.worker import Worker
 from src.ui.mplwidget import MplWidget
@@ -86,11 +87,10 @@ class MainWindow(QMainWindow, window.Ui_MainWindow):
             self.fetch_fmp_data)
         self.action_fetch_key_metrics_quarter.triggered.connect(
             self.fetch_fmp_data)
-        self.action_fetch_daily_chart.triggered.connect(self.fetch_fmp_data)
-        self.action_update_stoxx_europe.triggered.connect(self.fetch_fmp_data)
-        self.action_update_dividend.triggered.connect(self.fetch_fmp_data)
-        self.action_update_key_metrics.triggered.connect(self.fetch_fmp_data)
-        self.action_update_daily_chart.triggered.connect(self.fetch_fmp_data)
+        self.action_historical_daily_chart.triggered.connect(
+            self.fetch_fmp_data)
+        self.action_update_daily_chart_.triggered.connect(self.fetch_fmp_data)
+        self.action_backup.triggered.connect(self.create_dump)
         self.comboBox_reporting.currentTextChanged.connect(
             self.choice_reporting)
         self.comboBox_reporting.textHighlighted.connect(self.help_reporting)
@@ -423,10 +423,8 @@ class MainWindow(QMainWindow, window.Ui_MainWindow):
 
         """
         table_list = self.stock_reporting.table_list.copy()
-        # Insert a prompt for the user at the start of the list
-        table_list.insert(0, "------ Choice a table ------")
         # Insert an option to select all tables for reporting
-        table_list.insert(1, "Tables performance")
+        table_list.insert(0, "PostgreSQL table performance")
 
         # Populate the combo box with the updated table list
         self.comboBox_reporting.addItems(table_list)
@@ -448,7 +446,7 @@ class MainWindow(QMainWindow, window.Ui_MainWindow):
 
         help_text = ""
 
-        if highlighted_text == "Tables performance":
+        if highlighted_text == "PostgreSQL table performance":
             help_text = "Generate a performance report for each table in the database"
         elif highlighted_text == "sxxp":
             help_text = "Generates plots to report on the STOXX Europe 600 index components"
@@ -481,7 +479,7 @@ class MainWindow(QMainWindow, window.Ui_MainWindow):
         QApplication.setOverrideCursor(QCursor(Qt.CursorShape.WaitCursor))
 
         try:
-            if current_text == "Tables performance":
+            if current_text == "PostgreSQL table performance":
                 self.display_performance_all_tables()
             else:
                 self.display_report_table(current_text)
@@ -756,3 +754,49 @@ class MainWindow(QMainWindow, window.Ui_MainWindow):
 
         except Exception as e:  # pylint: disable=broad-except
             print(f"Failed to open the finance window: {str(e)}")
+
+    def create_dump(self):
+        """
+        Opens a file dialog allowing the user to specify the file path and name 
+        for saving a database dump. 
+        
+        If the user does not specify a '.sql' extension, it is automatically 
+        appended. This function handles the entire process of creating the 
+        database dump using the 'backup_database' function and provides user 
+        feedback via message boxes indicating success or error.
+
+        This method modifies the application's cursor to an hourglass during 
+        the dump operation to indicate processing and restores it afterwards. 
+        Errors are caught and displayed in a critical error message box.
+
+        Returns:
+            None. The result of the operation is communicated to the user via 
+            GUI dialog boxes.
+
+        """
+        # Open a file dialog to let the user choose where to save the dump
+        file_name, _ = QFileDialog.getSaveFileName(self,
+                "Save Dump File",
+                "",
+                "SQL Files (*.sql);;All Files (*)",
+                options=QFileDialog.Option.DontUseNativeDialog)
+
+        if file_name:
+            # Check if the file name ends with '.sql', if not, append it
+            if not file_name.lower().endswith('.sql'):
+                file_name += '.sql'
+
+            # Set the mouse cursor to hourglass
+            QApplication.setOverrideCursor(QCursor(Qt.CursorShape.WaitCursor))
+
+            try:
+                success = backup_database(file_name)
+                QMessageBox.information(self, "Success", success)
+            except Exception as e:  # pylint: disable=broad-except
+                QMessageBox.critical(
+                    self, 'Error', f'An error occurred while saving the dump file: {e}')
+            finally:
+                # Restore the mouse cursor to its default state
+                QApplication.restoreOverrideCursor()
+        else:
+            QMessageBox.warning(self, 'No File Selected', 'No file was selected for the backup.')

@@ -63,24 +63,22 @@ class Worker(QObject):
         
         """
         try:
-            if self.menu == "Fetch initial data" or self.menu == "Key metrics":
-                if self.action == "Stock symbols":
-                    self.stock_service.fetch_stock_symbols()
-                elif self.action == "Company profile":
-                    self.stock_service.fetch_company_profiles()
-                elif self.action == "STOXX Europe 600":
-                    self.stock_service.fetch_sxxp_historical_components('20240301')
-                elif self.action == "Dividend":
-                    self.stock_service.fetch_dividends_in_batches()
-                elif self.action == "Quarter":
-                    self.stock_service.fetch_keys_metrics_in_batches('quarter')
-                elif self.action == "Annual":
-                    self.stock_service.fetch_keys_metrics_in_batches('annual')
-                elif self.action == "Daily chart":
-                    self.stock_service.fetch_daily_charts_by_period()
-            elif self.menu == "Update time data":
-                if self.action == "Daily chart":
-                    self.stock_service.fetch_daily_chart_updating()
+            if self.action == "Stock symbols":
+                self.stock_service.fetch_stock_symbols()
+            elif self.action == "Company profile":
+                self.stock_service.fetch_company_profiles()
+            elif self.action == "STOXX Europe 600":
+                self.stock_service.fetch_sxxp_historical_components('20240301')
+            elif self.action == "Dividend":
+                self.stock_service.fetch_dividends_in_batches()
+            elif self.action == "Quarter":
+                self.stock_service.fetch_keys_metrics_in_batches('quarter')
+            elif self.action == "Annual":
+                self.stock_service.fetch_keys_metrics_in_batches('annual')
+            elif self.action == "Historical data":
+                self.stock_service.fetch_daily_charts_by_period()
+            elif self.action == "Data update":
+                self.stock_service.fetch_daily_chart_updating()
 
         except Exception as e: # pylint: disable=broad-except
             # Optionally, log the exception or emit it using update_signal

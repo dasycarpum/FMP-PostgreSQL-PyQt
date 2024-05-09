@@ -9,9 +9,13 @@ Created on 2024-03-12
 
 """
 
+import os
+import subprocess
+from dotenv import load_dotenv
 from sqlalchemy import text, exc
 from src.models.base import Session
 
+load_dotenv()
 
 def convert_table_to_hypertable(table_name):
     """
@@ -87,3 +91,51 @@ def convert_table_to_hypertable(table_name):
         # Rollback the transaction in case of an error
         db_session.rollback()
         raise(f"An error occurred: {e}") from e
+
+def backup_database(output_file):
+    """
+    Performs a full backup of a PostgreSQL database using environment variables 
+    to configure the connection and output settings.
+
+    The function retrieves database connection parameters from the environment, 
+    constructs a `pg_dump` command, and executes it. If the command fails, it 
+    raises an exception with details of what went wrong.
+
+    Args:
+        output_file (str): The path where the backup SQL file will be saved.
+
+    Returns:
+        str: A message indicating that the database backup was successful.
+
+    Raises:
+        RuntimeError: An error with details if the backup process fails.
+
+    Environment Variables:
+        DB_PASSWORD (str): The password for the PostgreSQL database user.
+        DB_HOST (str): The hostname of the PostgreSQL server.
+        DB_PORT (str): The port on which the PostgreSQL server is running.
+        DB_USER (str): The username used to connect to the database.
+        DB_NAME (str): The name of the database to back up.
+
+    """
+    # Set up the environment with the password
+    env = dict(os.environ, PGPASSWORD=os.getenv('DB_PASSWORD'))
+
+    # Prepare the pg_dump command
+    command = [
+        'pg_dump',
+        '-h', os.getenv('DB_HOST'),
+        '-p', str(os.getenv('DB_PORT')),
+        '-U', os.getenv('DB_USER'),
+        '-d', os.getenv('DB_NAME'),
+        '-F', 'p',
+        '-f', output_file,
+        '--encoding', 'UTF8'
+    ]
+
+    # Run the command
+    try:
+        subprocess.run(command, env=env, check=True)
+        return "Database backup was successful."
+    except subprocess.CalledProcessError as e:
+        raise(f"An error occurred while making the database backup : {e}") from e
