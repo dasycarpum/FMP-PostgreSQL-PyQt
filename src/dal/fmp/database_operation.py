@@ -20,7 +20,7 @@ from sqlalchemy.exc import (SQLAlchemyError, ProgrammingError, IntegrityError,
     OperationalError)
 from src.models.base import Session, DATABASE_URL, engine, Base
 from src.models.fmp.stock import (StockSymbol, CompanyProfile, DailyChartEOD,
-    HistoricalDividend, HistoricalKeyMetrics, STOXXEurope600)
+    HistoricalDividend, HistoricalKeyMetrics, STOXXEurope600, USStockIndex)
 from src.services.date import parse_date
 from src.services.various import (safe_convert_to_int,
     generate_dividend_signature)

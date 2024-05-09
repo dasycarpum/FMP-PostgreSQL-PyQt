@@ -179,7 +179,7 @@ class StockService(QObject):
         """
         try:
             # Stock tables to convert
-            tables = ['dailychart', 'dividend', 'keymetrics', 'sxxp']
+            tables = ['dailychart', 'dividend', 'keymetrics', 'sxxp', 'usindex']
 
             for table in tables:
                 convert_table_to_hypertable(table)
