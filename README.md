@@ -42,17 +42,25 @@ After the `$ git clone` you need to follow these steps:
     To run the application, use the following command : `$ python3.11 src/main.py`
 
 You should see a window similar to this :
-![Capture d’écran du 2024-05-07 15-01-17](https://github.com/dasycarpum/FMP-PostgreSQL-PyQt/assets/35745289/486f6a8a-9be3-4a6f-a5b7-dee0308ea56f)
 
+![Capture d’écran du 2024-05-08 11-42-33](https://github.com/dasycarpum/FMP-PostgreSQL-PyQt/assets/35745289/7dcbd8e6-471a-48e9-bdc4-d746edf4a9a3)
 
 ### Set up the Database and its Tables
 
 Go to the 'FMP Database' menu in the main window, and follow the steps in order:
 - Create new database, and restart the application
 - Create tables
-- Fetch initial data for the various tables
+- Import data into tables, always in the correct order
 
 Please note that some tables may take a long time to download.
+
+### Other screenshots
+
+![Capture d’écran du 2024-05-08 11-50-05](https://github.com/dasycarpum/FMP-PostgreSQL-PyQt/assets/35745289/41b5f1a1-79a6-46b0-95ad-da0f04212355)
+
+![Capture d’écran du 2024-05-08 11-51-33](https://github.com/dasycarpum/FMP-PostgreSQL-PyQt/assets/35745289/d699b471-10f7-4917-82cc-90b0adf659de)
+
+![Capture d’écran du 2024-05-09 09-34-06](https://github.com/dasycarpum/FMP-PostgreSQL-PyQt/assets/35745289/0b672ced-d870-40f5-91fb-401cd974082e)
 
 ## License
 
