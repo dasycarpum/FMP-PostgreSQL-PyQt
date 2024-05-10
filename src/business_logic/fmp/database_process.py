@@ -179,7 +179,7 @@ class StockService(QObject):
         """
         try:
             # Stock tables to convert
-            tables = ['dailychart', 'dividend', 'keymetrics', 'sxxp', 'usindex']
+            tables = ['dailychart', 'dividend', 'keymetrics', 'sxxp']
 
             for table in tables:
                 convert_table_to_hypertable(table)
@@ -240,9 +240,6 @@ class StockService(QObject):
 
         Raises:
             RuntimeError: If there's a database error or unexpected error during the update process.
-
-        Notes:
-            Examples : ./raw_data/european_exchanges.csv
 
         """
         # Fetch all symbols for the given exchange
@@ -498,6 +495,36 @@ class StockService(QObject):
             raise RuntimeError(
                 f"Failed to fetch historical sxxp components due to an unexpected error: {e}"
             ) from e
+
+    def fetch_usindex_components(self, us_market_index: str) -> None:
+        """
+        Fetches and updates US market constituents from a given index.
+
+        This method retrieves index from a user action and then fetches 
+        their constituents using an external API.
+
+        Args:
+            us_market_index (str): The US market index ('dowjones', 'sp500', 'nasdaq')
+        Raises:
+            RuntimeError: If there's a database error or unexpected error during the update process.
+
+        """
+        try:
+            # Initialize StockManager with the database session
+            stock_manager = StockManager(self.db_session)
+
+            # Data recovery
+            data = get_jsonparsed_data(f"https://financialmodelingprep.com/api/v3/{us_market_index}_constituent?apikey={API_KEY_FMP}") # pylint: disable=line-too-long
+
+            # Inserting data into the database
+            stock_manager.insert_usindex_components(us_market_index, data)
+
+        except SQLAlchemyError as e:
+            raise RuntimeError(
+                f"Failed to fetch historical key metrics due to database error: {e}") from e
+        except Exception as e:
+            raise RuntimeError(
+                f"Failed to fetch historical key metrics due to an unexpected error: {e}") from e
 
     def fetch_dividends_in_batches(self, batch_size: int = 50, calls_per_minute: int = 300) -> None:
         """

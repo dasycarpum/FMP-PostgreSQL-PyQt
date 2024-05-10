@@ -123,6 +123,10 @@ class CompanyProfile(Base):
 
     stocksymbol = relationship("StockSymbol", back_populates="company")
 
+    # Add a unique constraint for stock_id
+    __table_args__ = (UniqueConstraint('stock_id',
+                      name='_companyprofile_stockid_uc'),)
+
 class DailyChartEOD(Base):
     """
     Represents daily quote data for a stock symbol.
@@ -463,22 +467,20 @@ class USStockIndex(Base):
         symbol associated with the stock index.
 
     Constraints:
-        __table_args__ : A unique constraint (_usindex_stockid_date_uc) is 
-        applied to the `stock_id` and `date` fields to ensure there are no 
-        duplicate entries for the same stock on the same date.
+        __table_args__ : A unique constraint (_usindex_stockid_uc) is 
+        applied to the `stock_id` fields to ensure there are no duplicate 
+        entries for the same stock.
 
     """
     __tablename__ = 'usindex'
 
     id = Column(Integer, primary_key=True)
     stock_id = Column(Integer, ForeignKey(StockSymbol.id), unique=True, nullable=False)
-    date = Column(Date, nullable=False)
     index_symbol = Column(String(20))
     index_name = Column(String(50))
     cik = Column(String(10))
 
     stocksymbol = relationship("StockSymbol", back_populates="us_index")
 
-    # Add a unique constraint for stock_id and date
-    __table_args__ = (UniqueConstraint('stock_id', 'date',
-                      name='_usindex_stockid_date_uc'),)
+    # Add a unique constraint for stock_id
+    __table_args__ = (UniqueConstraint('stock_id', name='_usindex_stockid_uc'),)

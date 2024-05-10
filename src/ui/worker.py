@@ -67,6 +67,10 @@ class Worker(QObject):
                 self.stock_service.fetch_stock_symbols()
             elif self.action == "Company profile":
                 self.stock_service.fetch_company_profiles()
+            elif (self.action == "Dow Jones" or self.action == "SP 500"
+                or self.action == "NASDAQ"):
+                self.stock_service.fetch_usindex_components(
+                    self.action.replace(" ", "").lower())
             elif self.action == "STOXX Europe 600":
                 self.stock_service.fetch_sxxp_historical_components('20240301')
             elif self.action == "Dividend":
