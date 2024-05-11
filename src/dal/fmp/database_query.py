@@ -902,15 +902,21 @@ class StockQuery:
         """
         try:
             query = text("""
-            SELECT ss.id, name, symbol, isin 
+            SELECT ss.id, ss.name, ss.symbol, sxxp.isin, NULL AS cik
             FROM stocksymbol ss
-            RIGHT JOIN sxxp ON ss.id = sxxp.stock_id;
+            RIGHT JOIN sxxp ON ss.id = sxxp.stock_id
+
+            UNION ALL
+
+            SELECT ss.id, ss.name, ss.symbol, NULL AS isin, usindex.cik
+            FROM stocksymbol ss
+            RIGHT JOIN usindex ON ss.id = usindex.stock_id;
             """)
 
             data = self.db_session.execute(query).fetchall()
 
             # Creating the dictionary from fetched data
-            stock_dict = {item.id: [item.name, item.symbol, item.isin] for item in data}
+            stock_dict = {item.id: [item.name, item.symbol, item.isin, item.cik] for item in data}
 
             return stock_dict
 
@@ -1028,12 +1034,12 @@ class StockQuery:
             self.db_session.close()  # Close session in all cases (on success or failure)
 
     def fetch_companyprofile_data(self) -> pd.DataFrame:
-        """Fetches STOXX Europe 600 index company profiles.
+        """Fetches STOXX Europe 600 and US indexes company profiles.
 
         This function executes a SQL query that retrieves stock identifiers, 
         currency, sector and country  from a database. It right joins the 
-        `companyprofile` table with the `sxxp` table on stock id. The data is 
-        then converted into a DataFrame.
+        `companyprofile` table with the `sxxp` and `usindex` tables on stock 
+        ID. The data is then converted into a DataFrame.
 
         Returns:
             pd.DataFrame: A DataFrame containing the fetched data. Columns 
@@ -1047,7 +1053,13 @@ class StockQuery:
             query = text("""
             SELECT cp.stock_id, currency, sector, country
             FROM companyprofile cp
-            RIGHT JOIN sxxp ON cp.stock_id = sxxp.stock_id;
+            RIGHT JOIN sxxp ON cp.stock_id = sxxp.stock_id
+                
+            UNION ALL
+
+            SELECT cp.stock_id, currency, sector, country
+            FROM companyprofile cp
+            RIGHT JOIN usindex ON cp.stock_id = usindex.stock_id;
             """)
 
             result = self.db_session.execute(query)
