@@ -85,10 +85,6 @@ class StockQuery:
         'stock_id' in 'sxxp', and then it performs inner joins to fetch the 
         corresponding 'symbol' from 'stocksymbol'.
 
-        The method handles exceptions that may arise during the database 
-        operation, particularly those from SQLAlchemy, ensuring that the 
-        database session is properly rolled back and closed in case of an error.
-
         Returns:
             list: A list of tuples, where each tuple contains the symbol and id 
             of a stock as its only elements.
@@ -119,6 +115,45 @@ class StockQuery:
                 INNER JOIN \
                     sxxp ON sxxp.stock_id = ld.stock_id AND sxxp.date = ld.latest_date;"
                 )
+
+            data = self.db_session.execute(query).fetchall()
+
+            return data
+
+        except SQLAlchemyError as e:
+            # Rollback the transaction in case of an error
+            self.db_session.rollback()
+            raise RuntimeError(f"An error occurred: {e}") from e
+
+        finally:
+            # Close session in all cases (on success or failure)
+            self.db_session.close()
+
+    def extract_list_of_symbols_from_usindex(self):
+        """
+        Extracts a list of stock symbols from the 'usindex' table.
+
+        This method executes a SQL query that retrieves stock symbols 
+        ('symbol') from the 'stocksymbol' table. It only selects symbols for 
+        stock IDs ('stock_id') in the 'usindex' table.
+
+        Returns:
+            list: A list of tuples, where each tuple contains the symbol and id 
+            of a stock as its only elements.
+                
+        Raises:
+            SQLAlchemyError: If any database operation fails, an error is 
+            raised. The database session is rolled back to undo any partial 
+            changes and closed to ensure no resources are leaked.
+
+        """
+        try:
+            query = text(
+                """
+                SELECT ss.symbol, ss.id 
+                FROM stocksymbol ss
+                INNER JOIN usindex ON usindex.stock_id = ss.id;
+                """)
 
             data = self.db_session.execute(query).fetchall()
 
