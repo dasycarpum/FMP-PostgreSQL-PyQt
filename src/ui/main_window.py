@@ -80,7 +80,10 @@ class MainWindow(QMainWindow, window.Ui_MainWindow):
             self.setup_new_database)
         self.action_create_tables.triggered.connect(self.setup_stock_tables)
         self.action_fetch_stock_symbols.triggered.connect(self.fetch_fmp_data)
-        self.action_fetch_stoxx_europe.triggered.connect(self.fetch_fmp_data)
+        self.action_fetch_dow_jones.triggered.connect(self.fetch_fmp_data)
+        self.action_fetch_sp_500.triggered.connect(self.fetch_fmp_data)
+        self.action_fetch_nasdaq.triggered.connect(self.fetch_fmp_data)
+        self.action_fetch_stoxx_600.triggered.connect(self.fetch_fmp_data)
         self.action_fetch_company_profile.triggered.connect(self.fetch_fmp_data)
         self.action_fetch_dividend.triggered.connect(self.fetch_fmp_data)
         self.action_fetch_key_metrics_annual.triggered.connect(

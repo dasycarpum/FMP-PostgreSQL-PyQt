@@ -136,9 +136,12 @@ class FinanceWindow(QMainWindow, window.Ui_MainWindow):
                 break
 
         if matched_key is not None:
-            name, symbol, isin = self.stock_dict[matched_key]
+            name, symbol, isin, cik = self.stock_dict[matched_key]
             self.label_stock_name.setText(name)
-            self.label_stock_isin.setText(isin)
+            if isin is not None:
+                self.label_stock_isin.setText(isin)
+            else:
+                self.label_stock_isin.setText(cik)
             self.label_stock_symbol.setText(symbol)
             self.label_stock_id.setText('ID = ' + str(matched_key))
             self.setting['stock_id'] = matched_key

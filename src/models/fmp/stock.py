@@ -60,6 +60,7 @@ class StockSymbol(Base):
     keymetrics = relationship("HistoricalKeyMetrics",
                                back_populates="stocksymbol")
     stoxx600 = relationship("STOXXEurope600", back_populates='stocksymbol')
+    us_index = relationship("USStockIndex", back_populates='stocksymbol')
 
 
 class CompanyProfile(Base):
@@ -121,6 +122,10 @@ class CompanyProfile(Base):
     is_fund = Column(Boolean)
 
     stocksymbol = relationship("StockSymbol", back_populates="company")
+
+    # Add a unique constraint for stock_id
+    __table_args__ = (UniqueConstraint('stock_id',
+                      name='_companyprofile_stockid_uc'),)
 
 class DailyChartEOD(Base):
     """
@@ -391,10 +396,10 @@ class HistoricalKeyMetrics(Base):
 class STOXXEurope600(Base):
     """Represents the STOXX Europe 600 index within a database, detailing each stock's involvement.
 
-    The STOXX Europe 600 index, which includes 600 different stocks across 
-    Europe, aims to provide a broad yet effective representation of the 
-    European stock market. This class links each stock to its performance and
-    metadata within the index.
+    The STOXX Europe 600 index, which includes different stocks across Europe, 
+    aims to provide a broad yet effective representation of the European stock 
+    market. This class links each stock to its performance and metadata within 
+    the index.
 
     Attributes:
         __tablename__ (str): The name of the table in the database, set to 'sxxp'.
@@ -438,3 +443,44 @@ class STOXXEurope600(Base):
     # Add a unique constraint for stock_id and date
     __table_args__ = (UniqueConstraint('stock_id', 'date',
                       name='_sxxp_stockid_date_uc'),)
+
+class USStockIndex(Base):
+    """Represents the US market indexes within a database, detailing each stock's involvement.
+
+    The 3 US indexes (Dow jones, S&P 500 and Nasdaq), which includes different 
+    stocks across United States, aims to provide a broad yet effective 
+    representation of the US stock markets. This class links each stock to its 
+    performance and metadata within the index.
+
+    Attributes:
+        __tablename__ (str): The name of the table in the database, set to 'usindex'.
+        id (int): The primary key, an integer ID uniquely identifying each entry.
+        stock_id (int): An integer foreign key linking to the StockSymbol table, cannot be null.
+        date (date): The date of first entry in stock market index.
+        index_symbol (str): A string representing the symbol of the index within the market.
+        index_name (str): The formal name of the index
+        cik (str): The Central Index Key (CIK) assigned by the SEC.
+        
+    Relationships:
+        stocksymbol (relationship): SQLAlchemy `relationship` to the 
+        corresponding `StockSymbol` instance, providing access to the stock 
+        symbol associated with the stock index.
+
+    Constraints:
+        __table_args__ : A unique constraint (_usindex_stockid_uc) is 
+        applied to the `stock_id` fields to ensure there are no duplicate 
+        entries for the same stock.
+
+    """
+    __tablename__ = 'usindex'
+
+    id = Column(Integer, primary_key=True)
+    stock_id = Column(Integer, ForeignKey(StockSymbol.id), unique=True, nullable=False)
+    index_symbol = Column(String(20))
+    index_name = Column(String(50))
+    cik = Column(String(10))
+
+    stocksymbol = relationship("StockSymbol", back_populates="us_index")
+
+    # Add a unique constraint for stock_id
+    __table_args__ = (UniqueConstraint('stock_id', name='_usindex_stockid_uc'),)

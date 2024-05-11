@@ -241,9 +241,6 @@ class StockService(QObject):
         Raises:
             RuntimeError: If there's a database error or unexpected error during the update process.
 
-        Notes:
-            Examples : ./raw_data/european_exchanges.csv
-
         """
         # Fetch all symbols for the given exchange
         stock_symbol_query = self.db_session.query(
@@ -324,7 +321,7 @@ class StockService(QObject):
                 f"Failed to fetch company profiles due to an unexpected error: {e}") from e
 
     def fetch_daily_chart_for_period(self, symbol: str, start_date: str,
-        end_date:str) -> None:
+        end_date:str, update:bool = True) -> None:
         """
         Fetches daily chart data for a given symbol and period, and inserts it 
         into the database.
@@ -341,6 +338,8 @@ class StockService(QObject):
             symbol (str): The stock symbol for which to retrieve historical price data.
             start_date (str): The start date for the period of interest in YYYY-MM-DD format.
             end_date (str): The end date for the period of interest in YYYY-MM-DD format.
+            update (bool): Choice between updating actual data into the 
+            database or inserting new data.
 
         Raises:
             RuntimeError: An error occurred while updating the daily chart due 
@@ -355,11 +354,13 @@ class StockService(QObject):
             # Data recovery
             data = get_jsonparsed_data(f"https://financialmodelingprep.com/api/v3/historical-price-full/{symbol}?from={start_date}&to={end_date}&apikey={API_KEY_FMP}") # pylint: disable=line-too-long
 
-            # Updating actual data into the database
-            stock_manager.update_daily_chart_data(data)
-
-            # Inserting new data into the database
-            stock_manager.insert_daily_chart_data(data)
+            if update:
+                # Update last data into the database and insert new data
+                stock_manager.update_daily_chart_data(data)
+                stock_manager.insert_daily_chart_data(data)
+            else:
+                # Only inserting new data into the database (historical data)
+                stock_manager.insert_daily_chart_data(data)
 
         except SQLAlchemyError as e:
             raise RuntimeError(
@@ -499,6 +500,36 @@ class StockService(QObject):
                 f"Failed to fetch historical sxxp components due to an unexpected error: {e}"
             ) from e
 
+    def fetch_usindex_components(self, us_market_index: str) -> None:
+        """
+        Fetches and updates US market constituents from a given index.
+
+        This method retrieves index from a user action and then fetches 
+        their constituents using an external API.
+
+        Args:
+            us_market_index (str): The US market index ('dowjones', 'sp500', 'nasdaq')
+        Raises:
+            RuntimeError: If there's a database error or unexpected error during the update process.
+
+        """
+        try:
+            # Initialize StockManager with the database session
+            stock_manager = StockManager(self.db_session)
+
+            # Data recovery
+            data = get_jsonparsed_data(f"https://financialmodelingprep.com/api/v3/{us_market_index}_constituent?apikey={API_KEY_FMP}") # pylint: disable=line-too-long
+
+            # Inserting data into the database
+            stock_manager.insert_usindex_components(us_market_index, data)
+
+        except SQLAlchemyError as e:
+            raise RuntimeError(
+                f"Failed to fetch historical key metrics due to database error: {e}") from e
+        except Exception as e:
+            raise RuntimeError(
+                f"Failed to fetch historical key metrics due to an unexpected error: {e}") from e
+
     def fetch_dividends_in_batches(self, batch_size: int = 50, calls_per_minute: int = 300) -> None:
         """
         Fetches historical dividends for a list of stock symbols in batches, 
@@ -535,7 +566,8 @@ class StockService(QObject):
         """
         try:
             stock_query = StockQuery(self.db_session)
-            stock_symbol_query = stock_query.extract_list_of_symbols_from_sxxp()
+            stock_symbol_query= (stock_query.extract_list_of_symbols_from_sxxp()
+                        + stock_query.extract_list_of_symbols_from_usindex())
 
             if stock_symbol_query is None:
                 raise ValueError("Failed to fetch stock symbols from the database.")
@@ -611,7 +643,8 @@ class StockService(QObject):
         """
         try:
             stock_query = StockQuery(self.db_session)
-            stock_symbol_query = stock_query.extract_list_of_symbols_from_sxxp()
+            stock_symbol_query= (stock_query.extract_list_of_symbols_from_sxxp()
+                        + stock_query.extract_list_of_symbols_from_usindex())
 
             if stock_symbol_query is None:
                 raise ValueError("Failed to fetch stock symbols from the database.")
@@ -686,7 +719,8 @@ class StockService(QObject):
         end_date = datetime.now()
         try:
             stock_query = StockQuery(self.db_session)
-            stock_symbol_query = stock_query.extract_list_of_symbols_from_sxxp()
+            stock_symbol_query= (stock_query.extract_list_of_symbols_from_sxxp()
+                        + stock_query.extract_list_of_symbols_from_usindex())
 
             if stock_symbol_query is None:
                 raise ValueError("Failed to fetch stock symbols from the database.")
@@ -709,7 +743,7 @@ class StockService(QObject):
                     try:
                         self.fetch_daily_chart_for_period(symbol,
                             current_start_date.strftime('%Y-%m-%d'),
-                            current_end_date.strftime('%Y-%m-%d'))
+                            current_end_date.strftime('%Y-%m-%d'), False)
                     except Exception as api_error:
                         print(f"Error fetching historical daily charts for {symbol} from {current_start_date} to {current_end_date}: {api_error}") # pylint: disable=line-too-long
                     # pylint: enable=broad-except
@@ -792,9 +826,9 @@ class StockService(QObject):
                 )
                 symbol_n += 1
 
-                # Convert dates to string format for fetch_daily_chart_for_period`
+                # Fetch daily chart for period
                 self.fetch_daily_chart_for_period(
-                    symbol,start_date_str, end_date_str)
+                    symbol,start_date_str, end_date_str, True)
 
                 # Respect the rate limit after each call
                 sleep_time = 60 / calls_per_minute
