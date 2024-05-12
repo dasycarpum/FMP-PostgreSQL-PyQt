@@ -275,6 +275,40 @@ class StockService(QObject):
             raise RuntimeError(
                 f"Failed to fetch company profiles for exchange due to an unexpected error: {e}"
                 ) from e
+        
+    def optimized_fetch_company_profiles_for_exchange(self, exchange: str, batch_size: int = 50, calls_per_minute: int = 300):
+        # Fetch all symbols for the given exchange
+        symbols = self.db_session.query(StockSymbol.symbol).filter(StockSymbol.exchange == exchange).all()
+        symbols = [symbol[0] for symbol in symbols]
+
+        stock_manager = StockManager(self.db_session)
+        total_symbols = len(symbols)
+        api_url_template = "https://financialmodelingprep.com/api/v3/profile/{}?apikey={}"
+
+        try:
+            # Process symbols in batches respecting the API rate limit
+            for i in range(0, total_symbols, batch_size):
+                batch_symbols = symbols[i:i + batch_size]
+                api_url = api_url_template.format(','.join(batch_symbols), API_KEY_FMP)
+                data = get_jsonparsed_data(api_url)  # Fetch data for the batch
+
+                if data:
+                    stock_manager.bulk_insert_company_profiles(data)
+
+                # Commit after each successful data retrieval and insertion
+                self.db_session.commit()
+
+                # Respect the rate limit
+                if i + batch_size < total_symbols:
+                    time.sleep(60 * batch_size / calls_per_minute)
+
+        except SQLAlchemyError as e:
+            self.db_session.rollback()  # Rollback in case of error
+            raise RuntimeError(f"Database error occurred: {e}")
+        except Exception as e:
+            raise RuntimeError(f"Failed to fetch company profiles for exchange due to an unexpected error: {e}")
+        finally:
+            self.db_session.close()  # Ensure session is closed after operation
 
     def fetch_company_profiles(self) -> None:
         """
@@ -310,7 +344,7 @@ class StockService(QObject):
                     self.update_signal.emit(
                         f"Fetch company profiles at {timestamp} -> processing {row[0]} ..."
                     ) # Emit signal with message
-                    self.fetch_company_profiles_for_exchange(row[0])
+                    self.optimized_fetch_company_profiles_for_exchange(row[0])
 
         except SQLAlchemyError as e:
             raise RuntimeError(

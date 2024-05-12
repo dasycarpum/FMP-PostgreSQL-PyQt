@@ -398,6 +398,46 @@ class StockManager:
         finally:
             self.db_session.close()
 
+    def bulk_insert_company_profiles(self, data):
+        try:
+            # Parse and prepare data for bulk insert
+            prepared_data = []
+            for item in data:
+                # Date parsing
+                ipo_date_parsed = parse_date(item.get("ipoDate"))
+                # Find the stock id from the 'stocksymbol' table based on the symbol
+                stock_id_query = self.db_session.query(StockSymbol.id).filter(
+                    StockSymbol.symbol == item.get("symbol")).scalar()
+                prepared_data.append({
+                    'stock_id': stock_id_query,
+                    'beta': item.get("beta"),
+                    'vol_avg': item.get("volAvg"),
+                    'mkt_cap': item.get("mktCap"),
+                    'currency': item.get("currency"),
+                    'cik': str(item.get("cik")),
+                    'isin': item.get("isin").strip() if item.get("isin") is not None else None,
+                    'cusip': str(item.get("cusip")),
+                    'industry': item.get("industry"),
+                    'website': item.get("website"),
+                    'description': item.get("description"),
+                    'sector': item.get("sector"),
+                    'country': item.get("country"),
+                    'image': item.get("image"),
+                    'ipo_date': ipo_date_parsed,
+                    'is_etf': item.get("isEtf"),
+                    'is_actively_trading': item.get("isActivelyTrading"),
+                    'is_adr': item.get("isAdr"),
+                    'is_fund': item.get("isFund")
+                })
+
+            self.db_session.bulk_insert_mappings(CompanyProfile, prepared_data)
+
+        except SQLAlchemyError as e:
+            self.db_session.rollback()  # Rollback in case of error
+            raise RuntimeError(f"Database error occurred: {e}") from e
+        finally:
+            self.db_session.close()
+
     def insert_daily_chart_data(self, data):
         """Inserts daily historical stock data into the 'dailychart' table.
 
