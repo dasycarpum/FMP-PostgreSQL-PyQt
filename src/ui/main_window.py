@@ -638,6 +638,9 @@ class MainWindow(QMainWindow, window.Ui_MainWindow):
             if table_name == "sxxp":
                 topics = ["Metric", "Currency", "Sector", "Country", "Type"]
                 report_fct = self.stock_reporting.report_sxxp_table
+            elif table_name == "usindex":
+                topics = ["Metric", "Sector", "Type"]
+                report_fct = self.stock_reporting.report_usindex_table
             elif table_name == "dividend":
                 topics = ["Latest dates -> Plot", "NaN by stock -> Table", "NaN by column -> Table"]
                 report_fct = self.stock_reporting.report_dividend_table

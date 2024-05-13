@@ -228,44 +228,52 @@ class StockService(QObject):
                 f"Failed to fetch stock symbols due to an unexpected error: {e}") from e
 
     def fetch_company_profiles_for_exchange(self, exchange: str,
-        batch_size: int = 50, calls_per_minute: int = 300) -> None:
-        """
-        Fetches and updates company profiles from a given exchange in batches,
-        respecting API rate limits.
+        batch_size: int = 50, calls_per_minute: int = 300):
+        """Fetches and inserts company profiles in bulk from an external API 
+        into the PostgreSQL database.
+
+        This function retrieves company symbols from the specified exchange, 
+        makes batch API calls to fetch company profiles, and then uses bulk 
+        operations to insert the data into the database. The function handles 
+        API rate limits and commits data to the database in batches to optimize 
+        performance.
 
         Args:
-            exchange (str): The exchange to fetch company profiles for.
-            batch_size (int): Number of symbols to process in each batch.
-            calls_per_minute (int): Maximum number of API calls allowed per minute.
+            exchange (str): The stock exchange symbol to fetch the company 
+            profiles for, such as 'NASDAQ'.
+            batch_size (int): The number of company symbols to fetch data for 
+            in each API call. Defaults to 50.
+            calls_per_minute (int): The maximum number of API calls allowed per 
+            minute, used to calculate necessary delays between API calls to 
+            adhere to rate limits. Defaults to 300.
 
         Raises:
-            RuntimeError: If there's a database error or unexpected error during the update process.
-
+            RuntimeError: An error occurred due to database issues or API 
+            failures. The error message will provide more details about the 
+            nature of the error.
+        
         """
         # Fetch all symbols for the given exchange
-        stock_symbol_query = self.db_session.query(
-            StockSymbol.symbol).filter(StockSymbol.exchange == exchange).all()
+        symbols = self.db_session.query(StockSymbol.symbol).filter(
+            StockSymbol.exchange == exchange).all()
+        symbols = [symbol[0] for symbol in symbols]
 
-        symbols = [symbol[0] for symbol in stock_symbol_query]
+        stock_manager = StockManager(self.db_session)
+        total_symbols = len(symbols)
+        api_url_template = "https://financialmodelingprep.com/api/v3/profile/{}?apikey={}"
 
         try:
-            # Initialize StockManager with the database session
-            stock_manager = StockManager(self.db_session)
+            # Process symbols in batches respecting the API rate limit
+            for i in range(0, total_symbols, batch_size):
+                batch_symbols = symbols[i:i + batch_size]
+                api_url = api_url_template.format(','.join(batch_symbols), API_KEY_FMP)
+                data = get_jsonparsed_data(api_url)  # Fetch data for the batch
 
-            for i in range(0, len(symbols), batch_size):
-                batch = symbols[i:i + batch_size]
+                if data:
+                    stock_manager.insert_company_profiles(data)
 
-                for symbol in batch:
-                    # Data recovery
-                    data = get_jsonparsed_data(f"https://financialmodelingprep.com/api/v3/profile/{symbol}?apikey={API_KEY_FMP}") # pylint: disable=line-too-long
-
-                    # Inserting data into the database
-                    stock_manager.insert_company_profile(data)
-
-                self.db_session.commit()  # Commit after each batch
-
-                # Calculate and respect the rate limit
-                if i + batch_size < len(symbols):  # Check if there's another batch
+                # Respect the rate limit
+                if i + batch_size < total_symbols:
                     time.sleep(60 * batch_size / calls_per_minute)
 
         except SQLAlchemyError as e:
@@ -275,6 +283,8 @@ class StockService(QObject):
             raise RuntimeError(
                 f"Failed to fetch company profiles for exchange due to an unexpected error: {e}"
                 ) from e
+        finally:
+            self.db_session.close()
 
     def fetch_company_profiles(self) -> None:
         """

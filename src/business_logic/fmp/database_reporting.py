@@ -177,7 +177,7 @@ class StockReporting:
         """
         try:
             # Data query
-            df = self.stock_query.get_sxxp_by_company_profile()
+            df = self.stock_query.get_index_by_company_profile('sxxp')
 
             # Calculate the total number of stock ids
             sum_ = df.shape[0]
@@ -215,6 +215,71 @@ class StockReporting:
         except Exception as e:
             raise RuntimeError(
                 f"Failed to report sxxp table due to an unexpected error: {e}") from e
+
+    def report_usindex_table(self, reports: dict) -> None:
+        """
+        Generates various plots to report on the US market indexes by 
+        querying the company profile data.
+
+        This method retrieves data related to the US market indexes (Dow Jones, 
+        S&P 500, NASDAQ) from the database, focusing on company profiles. It 
+        visualizes this data through several plots:
+        - Distribution plots for beta, vol_avg (average volume), and mkt_cap 
+        (market capitalization).
+        - A treemap displaying the number of stocks per sector.
+        - A table showing counts of boolean values like is_etf, 
+        is_actively_trading, is_adr, and is_fund.
+
+        Attributes:
+            Uses an instance attribute `db_session` for database queries, which 
+            must be initialized with a valid database session before calling this method.
+
+        Args:
+            reports (dict): A dictionary where the key is the name of the topic 
+            report, and the value a MplWidget to display the topic's plot.
+
+        Returns:
+            None
+
+        Raises:
+            RuntimeError: If there is a database-related error during the query 
+            execution, encapsulating the original SQLAlchemyError. Also raised 
+            if there is any other unexpected error during the execution of this 
+            method, with details of the caught exception.
+
+        """
+        try:
+            # Data query
+            df = self.stock_query.get_index_by_company_profile('usindex')
+
+            # Calculate the total number of stock ids
+            sum_ = df.shape[0]
+
+            # Plotting
+            for topic, mpl_widget in reports.items():
+
+                title = (
+                    f"US market index constituents : number / {topic.lower()} - Total = {str(sum_)}") # pylint: disable=line-too-long
+
+                canvas = mpl_widget.canvas
+                if topic == "Metric":
+                    plot.plot_distributions_widget(
+                        canvas, df, ['beta', 'vol_avg', 'mkt_cap'],
+                        "US market index constituents : distribution of 3 economic variables")
+                elif topic == "Sector":
+                    df_sector = df['sector'].value_counts(sort=True).reset_index()
+                    plot.plot_treemap_widget(canvas, df_sector, title)
+                elif topic == "Type":
+                    df_bool = df[['is_etf', 'is_actively_trading',
+                                'is_adr', 'is_fund']].apply(pd.Series.value_counts)
+                    plot.plot_grouped_barchart_widget(canvas, df_bool, title)
+
+        except SQLAlchemyError as e:
+            raise RuntimeError(
+                f"Failed to report usindex table due to database error: {e}") from e
+        except Exception as e:
+            raise RuntimeError(
+                f"Failed to report usindex table due to an unexpected error: {e}") from e
 
     def report_dailychart_table(self, reports: dict) -> None:
         """

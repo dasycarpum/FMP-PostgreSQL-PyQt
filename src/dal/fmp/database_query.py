@@ -401,13 +401,16 @@ class StockQuery:
             # Close session in all cases (on success or failure)
             self.db_session.close()
 
-    def get_sxxp_by_company_profile(self) -> pd.DataFrame:
+    def get_index_by_company_profile(self, index: str) -> pd.DataFrame:
         """
         Retrieves a pandas DataFrame containing all records from the 'sxxp' 
         table joined with the 'companyprofile' table on the 'stock_id' column. 
         This join operation includes all columns from both tables, providing a 
         comprehensive view of the STOXX Europe 600 index companies along with 
         their profiles.
+
+        Args:
+            index (str): The name of the table with index constituents, 'sxxp' or 'usindex'.
 
         Returns:
             pd.DataFrame: A pandas DataFrame comprising all fields from the 
@@ -421,10 +424,10 @@ class StockQuery:
 
         """
         try:
-            query = text("""
-            SELECT * FROM sxxp
+            query = text(f"""
+            SELECT * FROM {index}
             LEFT JOIN companyprofile 
-                ON sxxp.stock_id = companyprofile.stock_id;
+                ON {index}.stock_id = companyprofile.stock_id;
             """)
 
             data = self.db_session.execute(query).fetchall()

@@ -1,7 +1,7 @@
 # FMP-PostgreSQL-PyQt
 Using Financial Modeling Prep APIs with SQL storage and dashboarding.
 
-The project involves providing a GUI to collect the data supplied by the [Financial Model Prep](https://site.financialmodelingprep.com/) site via its APIs, store it in a suitable database, and put it to use in a chart study or financial analysis. The current example is based on the composition of the STOXX Europe 600 index, but other stock market indices can easily be added or substituted.
+The project involves providing a GUI to collect the data supplied by the [Financial Model Prep](https://site.financialmodelingprep.com/) site via its APIs, store it in a suitable database, and put it to use in a chart study or financial analysis. The current example is based on the constituents of the STOXX Europe 600 index and the U.S. stock market indexes.
 
 ## Tags
 - Python
@@ -50,9 +50,9 @@ You should see a window similar to this :
 Go to the 'FMP Database' menu in the main window, and follow the steps in order:
 - Create new database, and restart the application
 - Create tables
-- Import data into tables, always in the correct order
+- Import data into tables, always in the correct order (top-down)
 
-Please note that some tables may take a long time to download.
+Please note that some tables may take a long time to download, e.g. company profile or daily chart.
 
 ### Other screenshots
 
