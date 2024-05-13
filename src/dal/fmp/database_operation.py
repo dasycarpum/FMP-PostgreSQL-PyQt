@@ -930,7 +930,7 @@ class StockManager:
 
                 else:
                     # Handle case where stock symbol is not found
-                    print(f"Stock ISIN {isin} not found.")
+                    print(f"Stock ISIN {isin} not found or rank = 0.")
 
             # Commit the session to the database
             self.db_session.commit()
