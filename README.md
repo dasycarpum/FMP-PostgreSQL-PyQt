@@ -31,7 +31,7 @@ After the `$ git clone` you need to follow these steps:
     Run `$ export PYTHONPATH="${PYTHONPATH}:/your/folder/FMP-PostgreSQL-PyQt"` to extend the Python interpreter's module search path to include the specified directory.
 
 2. **Install Python Libraries**:
-    - Create a virtual environment at project root : `$ python -m venv .venv`
+    - Create a virtual environment at project root : `$ python3.11 -m venv .venv`
     - Use it : `$ source .venv/bin/activate`
     - Run `$ pip install -r requirements.txt` to install the necessary librairies.
 
@@ -52,7 +52,7 @@ Go to the 'FMP Database' menu in the main window, and follow the steps in order:
 - Create tables
 - Import data into tables, always in the correct order (top-down)
 
-Please note that some tables may take a long time to download, e.g. company profile or daily chart.
+Please note that some tables may take a long time to download, e.g. company profile or historical daily chart.
 
 ### Other screenshots
 

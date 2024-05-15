@@ -10,6 +10,7 @@ Created on 2024-04-01
 """
 
 import os
+import sys
 from PyQt6.QtWidgets import (QMainWindow, QMenu, QInputDialog, QLineEdit,
     QMessageBox, QApplication, QTableWidget, QTableWidgetItem, QHeaderView, QTabWidget, QFileDialog)
 from PyQt6.QtGui import QDesktopServices, QCursor
@@ -247,7 +248,12 @@ class MainWindow(QMainWindow, window.Ui_MainWindow):
                 self.db_service.create_new_database()
 
                 # Show a success message to the user
-                QMessageBox.information(self, "Success", "Database created successfully!")
+                QMessageBox.information(
+                    self, "Success", "Database created successfully!\nThe application will now restart.") # pylint: disable=line-too-long
+
+                # Restart the application
+                os.execl(sys.executable, sys.executable, *sys.argv)
+
             except RuntimeError as e:
                 # Show an error message to the user
                 QMessageBox.critical(self, "Database Creation Failed", str(e))
