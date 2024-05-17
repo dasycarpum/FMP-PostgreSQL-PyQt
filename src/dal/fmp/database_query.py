@@ -1167,3 +1167,69 @@ class StockQuery:
         finally:
             # Close session in all cases (on success or failure)
             self.db_session.close()
+
+    def fetch_dividend_paying_companies(self, start_date: str, end_date: str) -> pd.DataFrame:
+        """Fetches a list of dividend-paying companies within a specified date range.
+
+        This method queries a database to retrieve the dates and corresponding 
+        stock names of companies that paid dividends within the given date 
+        range. The data is aggregated by date and sorted in descending order. 
+        This function handles database session management, ensuring the session 
+        is closed after execution, whether successful or not.
+
+        Args:
+            start_date (str): The start date for the query range, formatted as 
+            'YYYY-MM-DD'.
+            end_date (str): The end date for the query range, formatted as 
+            'YYYY-MM-DD', exclusive.
+
+        Returns:
+            pd.DataFrame: A DataFrame containing the dates and corresponding 
+            lists of stock names that paid dividends. If no data is found, 
+            returns an empty DataFrame with appropriate column names.
+
+        Raises:
+            RuntimeError: An error occurs during the database operation. The 
+            error from the database is caught as an SQLAlchemyError, and a more 
+            generic RuntimeError is raised, with the original error included 
+            for debugging.
+
+        """
+        try:
+            # Construct the SQL query using safe string formatting
+            query = text(f"""
+            SELECT 
+                d.date,
+                ARRAY_AGG(s.name) AS list_stock_names
+            FROM 
+                dividend d
+            JOIN 
+                stocksymbol s ON d.stock_id = s.id
+            WHERE 
+                d.date >= '{start_date}' AND d.date < '{end_date}'
+            GROUP BY 
+                d.date 
+            ORDER BY 
+                d.date DESC;
+            """)
+
+            result = self.db_session.execute(query)
+            fetched_data = result.fetchall()  # Fetch data once to avoid cursor exhaustion
+
+            # Check if fetched data is not empty
+            if fetched_data:
+                df = pd.DataFrame(fetched_data)
+                df.columns = result.keys()  # Set columns only if data is fetched
+            else:
+                df = pd.DataFrame(columns=result.keys())  # Create an empty df with column names
+
+            return df
+
+        except SQLAlchemyError as e:
+            # Rollback the transaction in case of an error
+            self.db_session.rollback()
+            raise RuntimeError(f"An error occurred: {e}") from e
+
+        finally:
+            # Close session in all cases (on success or failure)
+            self.db_session.close()

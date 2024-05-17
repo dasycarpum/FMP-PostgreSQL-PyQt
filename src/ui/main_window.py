@@ -11,8 +11,10 @@ Created on 2024-04-01
 
 import os
 import sys
+from datetime import datetime, timedelta
 from PyQt6.QtWidgets import (QMainWindow, QMenu, QInputDialog, QLineEdit,
-    QMessageBox, QApplication, QTableWidget, QTableWidgetItem, QHeaderView, QTabWidget, QFileDialog)
+    QMessageBox, QApplication, QTableWidget, QTableWidgetItem, QHeaderView,
+    QTabWidget, QFileDialog, QTreeWidgetItem)
 from PyQt6.QtGui import QDesktopServices, QCursor
 from PyQt6.QtCore import QUrl, Qt, QThread
 from src.models.base import Session
@@ -69,6 +71,7 @@ class MainWindow(QMainWindow, window.Ui_MainWindow):
         self.finance_window = None
 
         self.setup_reporting()
+        self.setup_dividend()
         self.setup_signal_connections()
 
     def setup_signal_connections(self):
@@ -812,3 +815,45 @@ class MainWindow(QMainWindow, window.Ui_MainWindow):
                 QApplication.restoreOverrideCursor()
         else:
             QMessageBox.warning(self, 'No File Selected', 'No file was selected for the backup.')
+
+    def setup_dividend(self):
+        """Sets up the dividend information in the UI's tree widget.
+
+        This method initializes the display for a list of dividend-paying 
+        companies in a tree widget, spanning from one week before today to one 
+        week after today. It fetches the dividend data using a method from 
+        `stock_reporting`, formats it, and populates the tree widget with this 
+        data, organizing it by date and listing companies under each date. 
+        Additionally, the current date's data is expanded by default for 
+        immediate visibility.
+
+        Args:
+            None
+
+        """
+        today = datetime.today()
+        week = 7
+        start_date = today - timedelta(days=week)
+        end_date = today + timedelta(days=week)
+
+        try:
+            df = self.stock_reporting.get_dividend_paying_companies(
+                start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d'))
+
+            self.treeWidget_dividend.setColumnCount(1)
+            self.treeWidget_dividend.setHeaderLabels(['Dividend-paying companies'])
+
+            for _, row in df.iterrows():
+                # Create a parent item for each date
+                parent = QTreeWidgetItem(self.treeWidget_dividend)
+                parent.setText(0, str(row['date']))
+                if str(row['date']) == today.strftime('%Y-%m-%d'):
+                    parent.setExpanded(True)
+
+                # Create a child item for each stock symbol in the list
+                for symbol in row['list_stock_names']:
+                    child = QTreeWidgetItem(parent)
+                    child.setText(0, symbol)
+
+        except Exception as e:  # pylint: disable=broad-except
+            print(f"Failed to setup dividend: {str(e)}")

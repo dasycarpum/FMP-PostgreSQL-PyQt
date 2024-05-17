@@ -910,3 +910,47 @@ class StockReporting:
         except Exception as e:
             raise RuntimeError(
                 f"Failed to get sector study data due to an unexpected error: {e}") from e
+
+    def get_dividend_paying_companies(self, start_date: str, end_date: str) -> pd.DataFrame:
+        """Retrieves a DataFrame listing companies that paid dividends within a 
+        specified date range.
+
+        This method utilizes a subcomponent `stock_query` to perform the actual 
+        database query. It handles the higher-level business logic by receiving 
+        input date ranges, delegating the database fetching task to 
+        `fetch_dividend_paying_companies`, and managing exceptions specific to 
+        database and other unexpected errors.
+
+        Args:
+            start_date (str): The start date for the query, formatted as 
+            'YYYY-MM-DD'.
+            end_date (str): The end date for the query, formatted as 
+            'YYYY-MM-DD', exclusive.
+
+        Returns:
+            pd.DataFrame: A DataFrame with each row representing a date and the 
+            corresponding list of stock names that paid dividends on that date. 
+            If no records are found, the DataFrame will be empty but with the 
+            appropriate column names set.
+
+        Raises:
+            RuntimeError: An error occurs during the database operation. Errors 
+            specifically from the database are caught as SQLAlchemyError and 
+            re-raised as RuntimeError with an appropriate message. Other, 
+            non-specific exceptions are also caught and re-raised as 
+            RuntimeError, ensuring that any issue during the fetching process 
+            is communicated clearly.
+
+        """
+        try:
+            # Fetch dividend-paying companies
+            df = self.stock_query.fetch_dividend_paying_companies(start_date, end_date)
+
+            return df
+
+        except SQLAlchemyError as e:
+            raise RuntimeError(
+                f"Failed to get dividend by date due to database error: {e}") from e
+        except Exception as e:
+            raise RuntimeError(
+                f"Failed to get dividend by date due to an unexpected error: {e}") from e
