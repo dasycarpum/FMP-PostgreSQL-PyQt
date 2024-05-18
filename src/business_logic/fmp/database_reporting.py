@@ -954,3 +954,38 @@ class StockReporting:
         except Exception as e:
             raise RuntimeError(
                 f"Failed to get dividend by date due to an unexpected error: {e}") from e
+
+    def get_dividend_details(self, table_widget: QTableWidget,
+        dividend_date: str) -> None:
+        """Retrieves and displays dividend details for a specified date in a Qt table widget.
+
+        This method calls another method to fetch dividend details as a 
+        DataFrame, which it then displays in the provided QTableWidget using a 
+        helper function. The function handles database-related errors and 
+        general exceptions by raising a RuntimeError with an appropriate 
+        message.
+
+        Args:
+            table_widget (QTableWidget): The Qt table widget where the dividend 
+            details will be displayed.
+            dividend_date (str): The date for which dividend details are to be 
+            fetched, formatted as 'YYYY-MM-DD'.
+
+        Raises:
+            RuntimeError: An error occurred during the database operation or 
+            another unexpected error, with the specific issue detailed in the 
+            exception message.
+
+        """
+        try:
+            # Fetch and display dividend details
+            df = self.stock_query.fetch_dividend_details(dividend_date)
+
+            plot.populate_tablewidget_with_df(table_widget, df)
+
+        except SQLAlchemyError as e:
+            raise RuntimeError(
+                f"Failed to get dividend details for a date due to database error: {e}") from e
+        except Exception as e:
+            raise RuntimeError(
+                f"Failed to get dividend details for a date due to an unexpected error: {e}") from e

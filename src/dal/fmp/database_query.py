@@ -1233,3 +1233,80 @@ class StockQuery:
         finally:
             # Close session in all cases (on success or failure)
             self.db_session.close()
+
+    def fetch_dividend_details(self, dividend_date: str) -> pd.DataFrame :
+        """Fetches details of dividends paid on a specific date.
+
+        This method constructs and executes a SQL query to gather data about 
+        dividends, including stock name, symbol, exchange, the dividend amount, 
+        and the closing price on the dividend date. If the closing price is not 
+        available, it defaults to 0.0.
+
+        Args:
+            dividend_date (str): The date for which to fetch dividend details 
+            in the format 'YYYY-MM-DD'.
+
+        Returns:
+            pd.DataFrame: A DataFrame containing the columns 'name', 'symbol', 
+            'exchange', 'dividend', and 'close'. If no data is found for the 
+            given date, returns an empty DataFrame with the same columns.
+
+        Raises:
+            RuntimeError: An error occurred during the database operation. The 
+            specific error is logged, and the database transaction is rolled back.
+
+        """
+        try:
+            # Construct the SQL query using safe string formatting
+            query = text(f"""
+            WITH ClosingPrices AS (
+                SELECT
+                    stock_id,
+                    date,
+                    close
+                FROM dailychart
+            ),
+            DividendData AS (
+                SELECT
+                    hd.stock_id,
+                    hd.date AS dividend_date,
+                    hd.dividend,
+                    ss.name,
+                    ss.symbol,
+                    ss.exchange,
+                    cp.close AS close_on_dividend_date
+                FROM dividend hd
+                JOIN stocksymbol ss ON hd.stock_id = ss.id
+                LEFT JOIN ClosingPrices cp ON hd.stock_id = cp.stock_id AND hd.date = cp.date
+            )
+            SELECT
+                name,
+                symbol,
+                exchange,
+                dividend,
+                COALESCE(close_on_dividend_date, 0.0) AS "close"
+            FROM DividendData
+            WHERE dividend_date = '{dividend_date}'
+            ORDER BY name;
+            """)
+
+            result = self.db_session.execute(query)
+            fetched_data = result.fetchall()  # Fetch data once to avoid cursor exhaustion
+
+            # Check if fetched data is not empty
+            if fetched_data:
+                df = pd.DataFrame(fetched_data)
+                df.columns = result.keys()  # Set columns only if data is fetched
+            else:
+                df = pd.DataFrame(columns=result.keys())  # Create an empty df with column names
+
+            return df
+
+        except SQLAlchemyError as e:
+            # Rollback the transaction in case of an error
+            self.db_session.rollback()
+            raise RuntimeError(f"An error occurred: {e}") from e
+
+        finally:
+            # Close session in all cases (on success or failure)
+            self.db_session.close()

@@ -16,7 +16,7 @@ from PyQt6.QtWidgets import (QMainWindow, QMenu, QInputDialog, QLineEdit,
     QMessageBox, QApplication, QTableWidget, QTableWidgetItem, QHeaderView,
     QTabWidget, QFileDialog, QTreeWidgetItem)
 from PyQt6.QtGui import QDesktopServices, QCursor
-from PyQt6.QtCore import QUrl, Qt, QThread
+from PyQt6.QtCore import QUrl, Qt, QThread, QDate
 from src.models.base import Session
 from src.business_logic.fmp.database_process import DBService, StockService
 from src.business_logic.fmp.database_reporting import StockReporting
@@ -107,6 +107,7 @@ class MainWindow(QMainWindow, window.Ui_MainWindow):
             self.update_text_browser_process)
         self.action_chart_window.triggered.connect(self.open_chart_window)
         self.action_finance_window.triggered.connect(self.open_finance_window)
+        self.calendarWidget_dividend.clicked.connect(self.detail_dividends)
 
     def set_pdf_to_open(self):
         """
@@ -841,7 +842,7 @@ class MainWindow(QMainWindow, window.Ui_MainWindow):
                 start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d'))
 
             self.treeWidget_dividend.setColumnCount(1)
-            self.treeWidget_dividend.setHeaderLabels(['Dividend-paying companies'])
+            self.treeWidget_dividend.setHeaderLabels(['Current dividend-paying companies'])
 
             for _, row in df.iterrows():
                 # Create a parent item for each date
@@ -857,3 +858,24 @@ class MainWindow(QMainWindow, window.Ui_MainWindow):
 
         except Exception as e:  # pylint: disable=broad-except
             print(f"Failed to setup dividend: {str(e)}")
+
+    def detail_dividends(self, calendar_date: QDate):
+        """Displays the dividend details for a selected date in a table widget within the UI.
+
+        This method is typically triggered by a user action in the UI, such as 
+        selecting a date from a calendar widget. It converts the selected date 
+        to a string format suitable for querying dividend details, then calls 
+        another method to fetch these details and display them in a designated 
+        table widget.
+
+        Args:
+            calendar_date (QDate): The date selected by the user, represented 
+            as a QDate object.
+
+        """
+        try:
+            self.stock_reporting.get_dividend_details(
+                self.tableWidget_dividend, calendar_date.toString('yyyy-MM-dd'))
+
+        except Exception as e:  # pylint: disable=broad-except
+            print(f"Failed to detail dividend: {str(e)}")
