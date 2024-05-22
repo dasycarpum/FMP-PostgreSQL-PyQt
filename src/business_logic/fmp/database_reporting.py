@@ -11,11 +11,13 @@ implementation details of data retrieval or database interaction.
 
 """
 
-from datetime import datetime
+from datetime import datetime, timedelta
 import pandas as pd
+from sqlalchemy import desc
 from sqlalchemy.exc import SQLAlchemyError
 from PyQt6.QtWidgets import QTableWidget
 from src.models.base import Session
+from src.models.fmp.stock import DailyChartEOD
 from src.dal.fmp.database_query import StockQuery
 from src.services import plot
 pd.set_option('future.no_silent_downcasting', True)
@@ -989,3 +991,75 @@ class StockReporting:
         except Exception as e:
             raise RuntimeError(
                 f"Failed to get dividend details for a date due to an unexpected error: {e}") from e
+
+    def generate_dividend_analysis(self, day_date: str, stock_id: int):
+        """
+        Generates a report analyzing dividend payouts relative to stock price 
+        adjustments around a specified date for a given stock. This method 
+        queries the database for end-of-day stock prices and calculates 
+        differences in closing and adjusted closing prices to infer dividend 
+        payouts.
+
+        Args:
+            day_date (str): The date for which the dividend data is to be 
+            processed, formatted as 'YYYY-MM-DD'.
+            stock_id (int): The unique identifier for the stock.
+
+        Returns:
+            Tuple[str, datetime.date]: A tuple containing:
+                - An HTML string that represents a table with columns for date, 
+                close, adjusted close, and dividend observations.
+                - The date of the previous close.
+
+        Raises:
+            ValueError: If the `day_date` string is improperly formatted.
+            SQLAlchemyError: If there is an issue querying the database.
+
+        """
+        # Convert input date string to datetime object
+        day_date = datetime.strptime(day_date, '%Y-%m-%d').date()
+
+        # Determine the date of the previous close
+        if day_date.weekday() == 0:  # Monday
+            eve_date = day_date - timedelta(days=3)
+        else:
+            eve_date = day_date - timedelta(days=1)
+
+        # Query for stock close prices around the dividend date
+        daily_closes = self.db_session.query(
+            DailyChartEOD.date, DailyChartEOD.close, DailyChartEOD.adj_close
+        ).filter(
+            DailyChartEOD.stock_id == stock_id,
+            DailyChartEOD.date <= day_date,
+            DailyChartEOD.date > day_date - timedelta(days=8),
+        ).order_by(desc(DailyChartEOD.date)).all()
+
+        # Process each closing price record found
+        data = []
+        for date, close, adj_close in daily_closes:
+            observation = ''
+            if date == eve_date:
+                gap = round(close - adj_close, 2)
+                observation = f"<-- {gap} {'Problem !' if gap == 0 else ''}"
+
+            data.append(
+                {'date': date,
+                 '__close__': close,
+                 '__adj. close__': adj_close,
+                 'dividend computed': observation})
+
+        output_df = pd.DataFrame(
+            data, columns=['date', '__close__', '__adj. close__', 'dividend computed'])
+
+        # Table formatting
+        style = """
+        <style>
+            th, td {
+                font-size: 14px;
+                text-align: center;
+            }
+        </style>
+        """
+        html_output = style + output_df.to_html(index=False)
+
+        return html_output, eve_date

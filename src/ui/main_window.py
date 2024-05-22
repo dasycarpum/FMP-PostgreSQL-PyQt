@@ -108,6 +108,8 @@ class MainWindow(QMainWindow, window.Ui_MainWindow):
         self.action_chart_window.triggered.connect(self.open_chart_window)
         self.action_finance_window.triggered.connect(self.open_finance_window)
         self.calendarWidget_dividend.clicked.connect(self.detail_dividends)
+        self.tableWidget_dividend.cellClicked.connect(
+            self.analyze_stock_dividend)
 
     def set_pdf_to_open(self):
         """
@@ -873,9 +875,44 @@ class MainWindow(QMainWindow, window.Ui_MainWindow):
             as a QDate object.
 
         """
+        self.textBrowser_dividend.clear()
+
         try:
             self.stock_reporting.get_dividend_details(
                 self.tableWidget_dividend, calendar_date.toString('yyyy-MM-dd'))
+
+        except Exception as e:  # pylint: disable=broad-except
+            print(f"Failed to detail dividend: {str(e)}")
+
+    def analyze_stock_dividend(self, row_number):
+        """
+        Analyzes the dividend details for a specific stock based on the 
+        selected date and stock ID from the user interface elements. Updates 
+        the text browser and date edit fields with the results of the analysis.
+
+        Args:
+            row_number (int): The row index in the table widget from which the 
+            stock ID is extracted.
+
+        Raises:
+            Exception: Generic exceptions captured during the dividend analysis 
+            process are caught and logged to the console.
+
+        """
+        try:
+            self.textBrowser_dividend.clear()
+
+            calendar_date = self.calendarWidget_dividend.selectedDate().toString('yyyy-MM-dd')
+            stock_id = int(self.tableWidget_dividend.verticalHeader().model().headerData(
+                row_number, Qt.Orientation.Vertical))
+
+            # Generate the dividend analysis using the selected date and stock ID
+            output, eve_date = self.stock_reporting.generate_dividend_analysis(
+                calendar_date, stock_id)
+
+            # Update the text browser and the date edit field with the results
+            self.textBrowser_dividend.setText(output)
+            self.dateEdit_dividend.setDate(eve_date)
 
         except Exception as e:  # pylint: disable=broad-except
             print(f"Failed to detail dividend: {str(e)}")

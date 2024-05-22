@@ -17,12 +17,12 @@ from datetime import datetime, timedelta
 import csv
 import re
 from dotenv import load_dotenv
-from sqlalchemy import func, desc
+from sqlalchemy import func
 from sqlalchemy.orm import aliased
 from sqlalchemy.exc import SQLAlchemyError
 from PyQt6.QtCore import QObject, pyqtSignal
 from src.models.base import Session
-from src.models.fmp.stock import StockSymbol, DailyChartEOD, HistoricalDividend
+from src.models.fmp.stock import StockSymbol, DailyChartEOD
 from src.services.api import get_jsonparsed_data
 from src.services.date import generate_business_time_series
 from src.services.sql import convert_table_to_hypertable
@@ -850,94 +850,3 @@ class StockService(QObject):
                 print(f"Value error for {symbol}: {e}")
             except Exception as e: # pylint: disable=broad-except
                 print(f"Unexpected error for {symbol}: {e}")
-
-    def process_and_update_dividends_by_date(self, day_date: str) -> None:
-        """
-        Processes dividends for stocks based on a specified date, suggesting an 
-        eve date for adjustment.
-        
-        This function retrieves the dividends for stocks on the given date, 
-        then suggests an eve date for each stock. The user is asked to confirm 
-        the suggested eve date or to provide a new date. If the suggested date 
-        is confirmed, an update operation is performed using `stock_manager.
-        update_daily_chart_adj_close_for_dividend`. If a new date is provided,
-        the function attempts to parse it and, upon success, performs the 
-        update operation with the new date. The user can exit the process at 
-        any time by entering 'exit' when prompted for a new date.
-
-        Args:
-            day_date (str): The date for which dividends need to be processed, 
-            in 'YYYY-MM-DD' format.
-
-        Returns:
-            None: This function does not return any value.
-
-        Note:
-            - The function will immediately exit if no dividends are found for 
-            the given date.
-            - An 'Invalid date format' message is displayed if the user enters 
-            an incorrect date format when prompted for a new date.
-            - If the user's response to the eve date confirmation is neither 
-            'y' nor 'n', the function will exit, indicating an invalid response.
-
-        """
-        # Initialize StockManager with the database session
-        stock_manager = StockManager(self.db_session)
-
-        day_date = datetime.strptime(day_date, '%Y-%m-%d').date()
-
-        daily_dividends = self.db_session.query(
-            HistoricalDividend.stock_id, HistoricalDividend.dividend).filter(
-                HistoricalDividend.date == day_date).all()
-
-        if not daily_dividends:
-            print("No dividends found for the specified date.")
-            return
-
-        for stock_id, dividend in daily_dividends:
-            print(stock_id, dividend)
-            if day_date.weekday() == 0:  # 0 = Monday
-                eve_date = day_date - timedelta(days=3)
-            else:
-                eve_date = day_date - timedelta(days=1)
-
-            daily_closes = self.db_session.query(
-                DailyChartEOD.date, DailyChartEOD.close, DailyChartEOD.adj_close).filter(
-                    DailyChartEOD.stock_id == stock_id,
-                    DailyChartEOD.date <= day_date,
-                    DailyChartEOD.date > day_date - timedelta(8),
-            ).order_by(desc(DailyChartEOD.date)).all()
-
-            for date, close, adj_close in daily_closes:
-                if date == eve_date:
-                    gap = round(close - adj_close, 2)
-                    print(date, close, adj_close, ' <-- ', gap, ('Problem !' if gap == 0 else ''))
-                else:
-                    print(date, close, adj_close)
-
-            print("Suggested date :", eve_date)
-
-            # Ask the user if he agrees with the suggested date
-            response = input("Accept the suggested date? (y/n): ").strip().lower()
-            if response == 'y':
-                stock_manager.update_daily_chart_adj_close_for_dividend(
-                    stock_id, eve_date.strftime('%Y-%m-%d'), dividend)
-            elif response == 'n':
-                while True:  # Loop to manage the user's response until
-                             # a valid date or an 'exit' is obtained
-                    new_date = input(
-                        "Enter a new date in 'YYYY-MM-DD' format or type 'exit' to stop: "
-                        ).strip().lower()
-                    if new_date == 'exit':
-                        return  # Exit function immediately
-                    else:
-                        try:
-                            day_date = datetime.strptime(new_date, '%Y-%m-%d').date()
-                            stock_manager.update_daily_chart_adj_close_for_dividend(
-                                stock_id, day_date.strftime('%Y-%m-%d'), dividend)
-                            break  # Exit while loop after updating with new date
-                        except ValueError:
-                            print("Invalid date format. Please try again.")
-            else:
-                print("Invalid response. Please answer 'y' or 'n'.")
-                return  # Immediate exit if answer is neither 'y' nor 'n

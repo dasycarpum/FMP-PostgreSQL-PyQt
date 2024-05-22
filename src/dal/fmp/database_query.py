@@ -1280,6 +1280,7 @@ class StockQuery:
                 LEFT JOIN ClosingPrices cp ON hd.stock_id = cp.stock_id AND hd.date = cp.date
             )
             SELECT
+                stock_id,
                 name,
                 symbol,
                 exchange,
@@ -1296,9 +1297,11 @@ class StockQuery:
             # Check if fetched data is not empty
             if fetched_data:
                 df = pd.DataFrame(fetched_data)
-                df.columns = result.keys()  # Set columns only if data is fetched
+                df.columns = [col.replace('_', ' ').title() for col in result.keys()]
+                df.set_index('Stock Id', inplace=True)
             else:
-                df = pd.DataFrame(columns=result.keys())  # Create an empty df with column names
+                df = pd.DataFrame(columns=[col.replace('_', ' ').title() for col in result.keys()])
+                df.set_index('Stock Id', inplace=True)
 
             return df
 
