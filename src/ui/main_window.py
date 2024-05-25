@@ -110,6 +110,8 @@ class MainWindow(QMainWindow, window.Ui_MainWindow):
         self.calendarWidget_dividend.clicked.connect(self.detail_dividends)
         self.tableWidget_dividend.cellClicked.connect(
             self.analyze_stock_dividend)
+        self.pushButton_next_stock.clicked.connect(self.move_on_to_next_stock)
+        self.pushButton_adjust_close.clicked.connect(self.update_adjusted_close)
 
     def set_pdf_to_open(self):
         """
@@ -888,7 +890,7 @@ class MainWindow(QMainWindow, window.Ui_MainWindow):
         """
         Analyzes the dividend details for a specific stock based on the 
         selected date and stock ID from the user interface elements. Updates 
-        the text browser and date edit fields with the results of the analysis.
+        the text browser with the results of the analysis.
 
         Args:
             row_number (int): The row index in the table widget from which the 
@@ -907,12 +909,71 @@ class MainWindow(QMainWindow, window.Ui_MainWindow):
                 row_number, Qt.Orientation.Vertical))
 
             # Generate the dividend analysis using the selected date and stock ID
-            output, eve_date = self.stock_reporting.generate_dividend_analysis(
-                calendar_date, stock_id)
+            output, _, _ = self.stock_reporting.generate_dividend_analysis(calendar_date, stock_id)
 
-            # Update the text browser and the date edit field with the results
+            # Update the text browser with the results
             self.textBrowser_dividend.setText(output)
-            self.dateEdit_dividend.setDate(eve_date)
 
         except Exception as e:  # pylint: disable=broad-except
             print(f"Failed to detail dividend: {str(e)}")
+
+    def move_on_to_next_stock(self):
+        """
+        Advances the current selection in the tableWidget dividend to the next 
+        row and analyzes the stock dividend for that row. 
+
+        """
+        if self.tableWidget_dividend is not None:
+            current_row = self.tableWidget_dividend.currentRow()
+            next_row = current_row + 1  # Calculate the next row index
+
+            # Check if the next row index is within the range of existing rows
+            if next_row < self.tableWidget_dividend.rowCount():
+                self.analyze_stock_dividend(next_row)
+                self.tableWidget_dividend.setCurrentCell(next_row, 0)
+            else:
+                print("Reached the last row of the table or empty table.")
+        else:
+            print("The table widget does not exist.")
+
+    def update_adjusted_close(self):
+        """Updates the adjusted closing prices in the daily charts for a 
+        selected stock.
+
+        This method fetches and updates the adjusted closing prices for the 
+        stock currently selected in the `tableWidget_dividend`. It retrieves 
+        the stock ID and symbol from the table, and calls a service to update 
+        the daily charts. Upon completion, a message box informs the user that 
+        the update has completed.
+
+        The cursor is set to a waiting cursor during the operation to indicate 
+        that the application is busy. If the operation fails, it will catch and 
+        print the exception.
+
+        Raises:
+            Exception: If there is any error during the fetching or updating 
+            process, it catches a broad exception and prints an error message.
+
+        """
+        self.tabWidget.setCurrentIndex(0)
+        QApplication.processEvents()  # Update the UI immediately
+
+        QApplication.setOverrideCursor(QCursor(Qt.CursorShape.WaitCursor))
+        try:
+            stock_id = int(
+                self.tableWidget_dividend.verticalHeader().model().headerData(
+                    self.tableWidget_dividend.currentRow(), Qt.Orientation.Vertical))
+
+            symbol = self.tableWidget_dividend.item(
+                self.tableWidget_dividend.currentRow(), 1).text()
+
+            self.stock_service.fetch_daily_charts_by_stock(stock_id, symbol)
+
+            QApplication.restoreOverrideCursor()
+            QMessageBox.information(self, 'Update Completed',
+                'Adjusted closing update in dailychart completed')
+
+        except Exception as e:  # pylint: disable=broad-except
+            print(f"Failed to update adjusted close: {str(e)}")
+        finally:
+            QApplication.restoreOverrideCursor()

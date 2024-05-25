@@ -12,8 +12,7 @@ via SQLAlchemy. These functions are part of the data access logic (DAL).
 """
 
 import os
-from datetime import datetime
-from sqlalchemy import update, exc, create_engine, text
+from sqlalchemy import update, create_engine, text
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.exc import (SQLAlchemyError, ProgrammingError, IntegrityError,
@@ -22,8 +21,7 @@ from src.models.base import Session, DATABASE_URL, engine, Base
 from src.models.fmp.stock import (StockSymbol, CompanyProfile, DailyChartEOD,
     HistoricalDividend, HistoricalKeyMetrics, STOXXEurope600, USStockIndex)
 from src.services.date import parse_date
-from src.services.various import (safe_convert_to_int,
-    generate_dividend_signature)
+from src.services.various import safe_convert_to_int
 
 
 class DBManager:
@@ -373,7 +371,7 @@ class StockManager:
         finally:
             self.db_session.close()
 
-    def insert_daily_chart_data(self, data):
+    def insert_daily_chart_data(self, data: dict):
         """Inserts daily historical stock data into the 'dailychart' table.
 
         This function processes a data structure that includes a stock symbol 
@@ -461,7 +459,7 @@ class StockManager:
         finally:
             self.db_session.close()
 
-    def update_daily_chart_data(self, data):
+    def update_daily_chart_data(self, data: dict):
         """
         Updates daily chart data for a given stock symbol with the provided historical data.
 
@@ -549,100 +547,53 @@ class StockManager:
         finally:
             self.db_session.close()
 
-    def update_daily_chart_adj_close_for_dividend(self, stock_id: int,
-        dividend_date: str, dividend_amount: float):
-        """
-        Updates the adjusted close prices in the daily chart for a given stock,
-        adjusting for dividends.
+    def update_daily_chart_adj_close(self, stock_id: int, data: dict):
+        """Updates the adjusted close price in the database for a given stock.
 
-        This function updates the `adj_close` value for all entries of a 
-        specific stock in the `dailychart` table, for dates before the dividend 
-        detachment date. It first checks if the adjustment for the specified 
-        dividend has already been made to avoid duplicate adjustments. The 
-        adjustment is made to reflect the impact of the dividend detachment on 
-        the adjusted close price.
+        This method iterates through each entry in the 'historical' key of the 
+        'data' dictionary. It parses the date to match the database's format, 
+        then constructs and executes an SQL update statement for each record. 
+        The update operation targets the DailyChartEOD table, specifically 
+        updating the 'adj_close' field where the 'stock_id' and 
+        date match the provided data. The database transaction is committed if 
+        all operations succeed, otherwise, it is rolled back in case of an 
+        error.
 
         Args:
-            stock_id (int): The ID of the stock to adjust.
-            dividend_date (str): The date of the dividend detachment in 'YYYY-MM-DD' format.
-            dividend_amount (float): The amount of the dividend paid.
-
-        Returns:
-            None. The function updates the `adj_close` values in-place and 
-            commits the changes to the database.
+            stock_id (int): The unique identifier of the stock to update.
+            data (dict): A dictionary containing historical price data. 
+            Expected to have a key 'historical' which contains a list of 
+            dictionaries, each with keys 'date' and 'adjClose'.
 
         Raises:
-        RuntimeError: If there's a failure in database operations, or if the 
-        close price for the given stock on the specified dividend date is not 
-        available in the database, or for any unforeseen errors that occur 
-        during the execution of the method.
-
-        Note:
-            This function assumes that the `close` value on the dividend 
-            detachment day already reflects the dividend detachment,
-            i.e., that `close` is adjusted for that day. If that's not the 
-            case, the `close` value for the dividend detachment day
-            should be adjusted before applying this function.
+            RuntimeError: An error is raised if there is a database-related 
+            issue during the update operations. The original error is 
+            encapsulated within the RuntimeError.
 
         """
-        # Generate unique signature for dividend event
-        signature = generate_dividend_signature(stock_id, dividend_date,
-        dividend_amount)
-
-        # Check if the adjustment has already been made to avoid duplicates
-        exists = self.db_session.query(
-            self.db_session.query(DailyChartEOD).filter_by(dividend_signature=signature).exists()
-        ).scalar()
-
-        if exists:
-            print("Adjustment already made for this dividend.")
-            return
-
         try:
-            # Convert the dividend date string to a datetime object
-            dividend_date = datetime.strptime(dividend_date, '%Y-%m-%d').date()
+            for item in data["historical"]:
+                # Parse the date field to ensure it matches the Date format in the database
+                date_parsed = parse_date(item.get("date"))
 
-            # Retrieve the 'close' price on the dividend date
-            detachment_close = self.db_session.query(DailyChartEOD.close).filter(
-                DailyChartEOD.stock_id == stock_id,
-                DailyChartEOD.date == dividend_date
-            ).scalar()
+                # Prepare the insertion statement with the found stock ID
+                stmt = update(DailyChartEOD).where(
+                        DailyChartEOD.stock_id == stock_id,
+                        DailyChartEOD.date == date_parsed
+                    ).values(
+                        adj_close=item.get("adjClose"),
+                    )
 
-            if detachment_close is None:
-                raise ValueError(
-                    f"No closing price available for stock_id {stock_id} on {dividend_date}")
+                # SQLAlchemy's `execute` method is used to execute the update statement
+                self.db_session.execute(stmt)
 
-            corrective_ratio = dividend_amount / detachment_close
-
-            # Use SQLAlchemy Core to perform a bulk update directly
-            self.db_session.execute(
-                update(DailyChartEOD).
-                where(DailyChartEOD.stock_id == stock_id, DailyChartEOD.date == dividend_date).
-                values({DailyChartEOD.dividend_signature: signature})
-            )
-
-            self.db_session.execute(
-                update(DailyChartEOD).
-                where(DailyChartEOD.stock_id == stock_id, DailyChartEOD.date < dividend_date).
-                values({DailyChartEOD.adj_close: DailyChartEOD.close * (1 - corrective_ratio)})
-            )
-
-            # Commit the transaction
             self.db_session.commit()
 
-        except exc.SQLAlchemyError as e:
-            # Handle general SQLAlchemy errors
-            self.db_session.rollback()
-            raise RuntimeError(f"Database operation failed: {e}") from e
-
-        except ValueError as e:
-            # Handle specific value errors, e.g., missing close price
-            raise RuntimeError(e) from e
-
-        except Exception as e:
-            # Catch-all for any other unforeseen errors
-            self.db_session.rollback()
-            raise RuntimeError(f"An unexpected error occurred: {e}") from e
+        except SQLAlchemyError as e:
+            self.db_session.rollback()  # Rollback in case of error
+            raise RuntimeError(f"Database error occurred: {e}") from e
+        finally:
+            self.db_session.close()
 
 
     def insert_historical_dividend(self, data):

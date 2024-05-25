@@ -17,10 +17,10 @@ from datetime import datetime, timedelta
 import csv
 import re
 from dotenv import load_dotenv
-from sqlalchemy import func
+from sqlalchemy import func, text
 from sqlalchemy.orm import aliased
 from sqlalchemy.exc import SQLAlchemyError
-from PyQt6.QtCore import QObject, pyqtSignal
+from PyQt6.QtCore import QObject, pyqtSignal, QCoreApplication
 from src.models.base import Session
 from src.models.fmp.stock import StockSymbol, DailyChartEOD
 from src.services.api import get_jsonparsed_data
@@ -331,7 +331,7 @@ class StockService(QObject):
                 f"Failed to fetch company profiles due to an unexpected error: {e}") from e
 
     def fetch_daily_chart_for_period(self, symbol: str, start_date: str,
-        end_date:str, update:bool = True) -> None:
+        end_date:str, operation:str, stock_id: int = 0) -> None:
         """
         Fetches daily chart data for a given symbol and period, and inserts it 
         into the database.
@@ -348,8 +348,8 @@ class StockService(QObject):
             symbol (str): The stock symbol for which to retrieve historical price data.
             start_date (str): The start date for the period of interest in YYYY-MM-DD format.
             end_date (str): The end date for the period of interest in YYYY-MM-DD format.
-            update (bool): Choice between updating actual data into the 
-            database or inserting new data.
+            operation (str): Choice between updating actual data into the 
+            database or inserting new data or updating adjusted close.
 
         Raises:
             RuntimeError: An error occurred while updating the daily chart due 
@@ -364,13 +364,16 @@ class StockService(QObject):
             # Data recovery
             data = get_jsonparsed_data(f"https://financialmodelingprep.com/api/v3/historical-price-full/{symbol}?from={start_date}&to={end_date}&apikey={API_KEY_FMP}") # pylint: disable=line-too-long
 
-            if update:
+            if operation == 'update_recent_data':
                 # Update last data into the database and insert new data
                 stock_manager.update_daily_chart_data(data)
                 stock_manager.insert_daily_chart_data(data)
-            else:
+            elif operation == 'insert':
                 # Only inserting new data into the database (historical data)
                 stock_manager.insert_daily_chart_data(data)
+            elif operation == 'update_adj_close':
+                # Update adjusted close price into the database
+                stock_manager.update_daily_chart_adj_close(stock_id, data)
 
         except SQLAlchemyError as e:
             raise RuntimeError(
@@ -753,7 +756,7 @@ class StockService(QObject):
                     try:
                         self.fetch_daily_chart_for_period(symbol,
                             current_start_date.strftime('%Y-%m-%d'),
-                            current_end_date.strftime('%Y-%m-%d'), False)
+                            current_end_date.strftime('%Y-%m-%d'), 'insert')
                     except Exception as api_error:
                         print(f"Error fetching historical daily charts for {symbol} from {current_start_date} to {current_end_date}: {api_error}") # pylint: disable=line-too-long
                     # pylint: enable=broad-except
@@ -838,7 +841,7 @@ class StockService(QObject):
 
                 # Fetch daily chart for period
                 self.fetch_daily_chart_for_period(
-                    symbol,start_date_str, end_date_str, True)
+                    symbol,start_date_str, end_date_str, 'update_recent_data')
 
                 # Respect the rate limit after each call
                 sleep_time = 60 / calls_per_minute
@@ -850,3 +853,75 @@ class StockService(QObject):
                 print(f"Value error for {symbol}: {e}")
             except Exception as e: # pylint: disable=broad-except
                 print(f"Unexpected error for {symbol}: {e}")
+
+    def fetch_daily_charts_by_stock(self, stock_id: int, symbol:str,
+        calls_per_minute: int = 300) -> None:
+        """
+        Fetches and processes daily chart data for a specified stock over a 
+        span of years, dividing the requests to adhere to API rate limits.
+
+        This function retrieves the earliest and latest dates of daily chart 
+        data available for a stock, then iteratively fetches the data in chunks 
+        based on a defined period in years, respecting the API's rate limits.
+
+        Args:
+            stock_id (int): The unique identifier for the stock.
+            symbol (str): The stock symbol.
+            calls_per_minute (int): The maximum number of API calls allowed per 
+            minute. Defaults to 300.
+
+        Raises:
+            ValueError: If there is an error executing the database query.
+            RuntimeError: If there is an unexpected error during the fetching process.
+
+        """
+        period_years = 5
+
+        try:
+            query = text(f"""
+            SELECT MIN(date), MAX(date) FROM dailychart
+            WHERE stock_id = {stock_id};
+            """)
+
+            result = self.db_session.execute(query).fetchall()
+            (start_date, end_date), = result
+
+            start_date = datetime.strptime(
+                start_date, '%Y-%m-%d').date() if isinstance(start_date, str) else start_date
+            end_date = datetime.strptime(
+                end_date, '%Y-%m-%d').date() if isinstance(end_date, str) else end_date
+
+            current_start_date = start_date
+            while current_start_date < end_date:
+                current_end_date = min(
+                    current_start_date + timedelta(days=365 * period_years), end_date)
+
+                self.update_signal.emit(
+                    f"Adjusted closing update in dailychart -> processing {symbol} from {current_start_date.strftime('%Y-%m-%d')} to {current_end_date.strftime('%Y-%m-%d')} ..."# pylint: disable=line-too-long
+                )
+                # Force the event loop to process the emitted signal
+                QCoreApplication.processEvents()
+
+                # pylint: disable=broad-except
+                try:
+                    self.fetch_daily_chart_for_period(
+                        symbol,
+                        current_start_date.strftime('%Y-%m-%d'),
+                        current_end_date.strftime('%Y-%m-%d'),
+                        'update_adj_close',
+                        stock_id)
+                except Exception as api_error:
+                    print(f"Error fetching historical daily charts for {symbol} from {current_start_date} to {current_end_date}: {api_error}") # pylint: disable=line-too-long
+                # pylint: enable=broad-except
+                current_start_date = current_end_date + timedelta(days=1)
+
+                # Respect the rate limit after each call
+                sleep_time = 60 / calls_per_minute
+                time.sleep(sleep_time)
+
+        except SQLAlchemyError as db_error:
+            raise ValueError(
+                "Database error occurred while fetching daily charts by stock.") from db_error
+        except Exception as e:
+            raise RuntimeError(
+                f"Failed to fetch daily charts by stock due to an unexpected error: {e}") from e

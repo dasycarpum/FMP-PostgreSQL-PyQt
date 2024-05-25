@@ -1010,6 +1010,7 @@ class StockReporting:
                 - An HTML string that represents a table with columns for date, 
                 close, adjusted close, and dividend observations.
                 - The date of the previous close.
+                - The dividend computed by FMP (close - adj_close)
 
         Raises:
             ValueError: If the `day_date` string is improperly formatted.
@@ -1062,4 +1063,4 @@ class StockReporting:
         """
         html_output = style + output_df.to_html(index=False)
 
-        return html_output, eve_date
+        return html_output, eve_date, gap
