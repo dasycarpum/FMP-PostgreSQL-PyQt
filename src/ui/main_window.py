@@ -10,10 +10,13 @@ Created on 2024-04-01
 """
 
 import os
+import sys
+from datetime import datetime, timedelta
 from PyQt6.QtWidgets import (QMainWindow, QMenu, QInputDialog, QLineEdit,
-    QMessageBox, QApplication, QTableWidget, QTableWidgetItem, QHeaderView, QTabWidget, QFileDialog)
+    QMessageBox, QApplication, QTableWidget, QTableWidgetItem, QHeaderView,
+    QTabWidget, QFileDialog, QTreeWidgetItem)
 from PyQt6.QtGui import QDesktopServices, QCursor
-from PyQt6.QtCore import QUrl, Qt, QThread
+from PyQt6.QtCore import QUrl, Qt, QThread, QDate
 from src.models.base import Session
 from src.business_logic.fmp.database_process import DBService, StockService
 from src.business_logic.fmp.database_reporting import StockReporting
@@ -68,6 +71,7 @@ class MainWindow(QMainWindow, window.Ui_MainWindow):
         self.finance_window = None
 
         self.setup_reporting()
+        self.setup_dividend()
         self.setup_signal_connections()
 
     def setup_signal_connections(self):
@@ -103,6 +107,11 @@ class MainWindow(QMainWindow, window.Ui_MainWindow):
             self.update_text_browser_process)
         self.action_chart_window.triggered.connect(self.open_chart_window)
         self.action_finance_window.triggered.connect(self.open_finance_window)
+        self.calendarWidget_dividend.clicked.connect(self.detail_dividends)
+        self.tableWidget_dividend.cellClicked.connect(
+            self.analyze_stock_dividend)
+        self.pushButton_next_stock.clicked.connect(self.move_on_to_next_stock)
+        self.pushButton_adjust_close.clicked.connect(self.update_adjusted_close)
 
     def set_pdf_to_open(self):
         """
@@ -247,7 +256,12 @@ class MainWindow(QMainWindow, window.Ui_MainWindow):
                 self.db_service.create_new_database()
 
                 # Show a success message to the user
-                QMessageBox.information(self, "Success", "Database created successfully!")
+                QMessageBox.information(
+                    self, "Success", "Database created successfully!\nThe application will now restart.") # pylint: disable=line-too-long
+
+                # Restart the application
+                os.execl(sys.executable, sys.executable, *sys.argv)
+
             except RuntimeError as e:
                 # Show an error message to the user
                 QMessageBox.critical(self, "Database Creation Failed", str(e))
@@ -806,3 +820,160 @@ class MainWindow(QMainWindow, window.Ui_MainWindow):
                 QApplication.restoreOverrideCursor()
         else:
             QMessageBox.warning(self, 'No File Selected', 'No file was selected for the backup.')
+
+    def setup_dividend(self):
+        """Sets up the dividend information in the UI's tree widget.
+
+        This method initializes the display for a list of dividend-paying 
+        companies in a tree widget, spanning from one week before today to one 
+        week after today. It fetches the dividend data using a method from 
+        `stock_reporting`, formats it, and populates the tree widget with this 
+        data, organizing it by date and listing companies under each date. 
+        Additionally, the current date's data is expanded by default for 
+        immediate visibility.
+
+        Args:
+            None
+
+        """
+        today = datetime.today()
+        week = 7
+        start_date = today - timedelta(days=week)
+        end_date = today + timedelta(days=week)
+
+        try:
+            df = self.stock_reporting.get_dividend_paying_companies(
+                start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d'))
+
+            self.treeWidget_dividend.setColumnCount(1)
+            self.treeWidget_dividend.setHeaderLabels(['Current dividend-paying companies'])
+
+            for _, row in df.iterrows():
+                # Create a parent item for each date
+                parent = QTreeWidgetItem(self.treeWidget_dividend)
+                parent.setText(0, str(row['date']))
+                if str(row['date']) == today.strftime('%Y-%m-%d'):
+                    parent.setExpanded(True)
+
+                # Create a child item for each stock symbol in the list
+                for symbol in row['list_stock_names']:
+                    child = QTreeWidgetItem(parent)
+                    child.setText(0, symbol)
+
+        except Exception as e:  # pylint: disable=broad-except
+            print(f"Failed to setup dividend: {str(e)}")
+
+    def detail_dividends(self, calendar_date: QDate):
+        """Displays the dividend details for a selected date in a table widget within the UI.
+
+        This method is typically triggered by a user action in the UI, such as 
+        selecting a date from a calendar widget. It converts the selected date 
+        to a string format suitable for querying dividend details, then calls 
+        another method to fetch these details and display them in a designated 
+        table widget.
+
+        Args:
+            calendar_date (QDate): The date selected by the user, represented 
+            as a QDate object.
+
+        """
+        self.textBrowser_dividend.clear()
+
+        try:
+            self.stock_reporting.get_dividend_details(
+                self.tableWidget_dividend, calendar_date.toString('yyyy-MM-dd'))
+
+        except Exception as e:  # pylint: disable=broad-except
+            print(f"Failed to detail dividend: {str(e)}")
+
+    def analyze_stock_dividend(self, row_number):
+        """
+        Analyzes the dividend details for a specific stock based on the 
+        selected date and stock ID from the user interface elements. Updates 
+        the text browser with the results of the analysis.
+
+        Args:
+            row_number (int): The row index in the table widget from which the 
+            stock ID is extracted.
+
+        Raises:
+            Exception: Generic exceptions captured during the dividend analysis 
+            process are caught and logged to the console.
+
+        """
+        try:
+            self.textBrowser_dividend.clear()
+
+            calendar_date = self.calendarWidget_dividend.selectedDate().toString('yyyy-MM-dd')
+            stock_id = int(self.tableWidget_dividend.verticalHeader().model().headerData(
+                row_number, Qt.Orientation.Vertical))
+
+            # Generate the dividend analysis using the selected date and stock ID
+            output, _, _ = self.stock_reporting.generate_dividend_analysis(calendar_date, stock_id)
+
+            # Update the text browser with the results
+            self.textBrowser_dividend.setText(output)
+
+        except Exception as e:  # pylint: disable=broad-except
+            print(f"Failed to detail dividend: {str(e)}")
+
+    def move_on_to_next_stock(self):
+        """
+        Advances the current selection in the tableWidget dividend to the next 
+        row and analyzes the stock dividend for that row. 
+
+        """
+        if self.tableWidget_dividend is not None:
+            current_row = self.tableWidget_dividend.currentRow()
+            next_row = current_row + 1  # Calculate the next row index
+
+            # Check if the next row index is within the range of existing rows
+            if next_row < self.tableWidget_dividend.rowCount():
+                self.analyze_stock_dividend(next_row)
+                self.tableWidget_dividend.setCurrentCell(next_row, 0)
+            else:
+                print("Reached the last row of the table or empty table.")
+        else:
+            print("The table widget does not exist.")
+
+    def update_adjusted_close(self):
+        """Updates the adjusted closing prices in the daily charts for a 
+        selected stock.
+
+        This method fetches and updates the adjusted closing prices for the 
+        stock currently selected in the `tableWidget_dividend`. It retrieves 
+        the stock ID and symbol from the table, and calls a service to update 
+        the daily charts. Upon completion, a message box informs the user that 
+        the update has completed.
+
+        The cursor is set to a waiting cursor during the operation to indicate 
+        that the application is busy. If the operation fails, it will catch and 
+        print the exception.
+
+        Raises:
+            Exception: If there is any error during the fetching or updating 
+            process, it catches a broad exception and prints an error message.
+
+        """
+        self.tabWidget.setCurrentIndex(0)
+        QApplication.processEvents()  # Update the UI immediately
+
+        QApplication.setOverrideCursor(QCursor(Qt.CursorShape.WaitCursor))
+        try:
+            stock_id = int(
+                self.tableWidget_dividend.verticalHeader().model().headerData(
+                    self.tableWidget_dividend.currentRow(), Qt.Orientation.Vertical))
+
+            symbol = self.tableWidget_dividend.item(
+                self.tableWidget_dividend.currentRow(), 1).text()
+
+            self.stock_service.fetch_daily_charts_by_stock(stock_id, symbol)
+
+            QApplication.restoreOverrideCursor()
+            QMessageBox.information(self, 'Update Completed',
+                'Adjusted closing update in dailychart completed')
+
+        except Exception as e:  # pylint: disable=broad-except
+            print(f"Failed to update adjusted close: {str(e)}")
+        finally:
+            QApplication.restoreOverrideCursor()

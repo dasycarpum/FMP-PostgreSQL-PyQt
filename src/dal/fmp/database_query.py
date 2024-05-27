@@ -219,78 +219,6 @@ class StockQuery:
             # Close session in all cases (on success or failure)
             self.db_session.close()
 
-    def get_undeclared_dividends(self, start_date: str) -> list:
-        """
-        The aim is to identify stocks where no dividend has been declared by 
-        FMP, but which are nonetheless subject to an adjustment : the function 
-        retrieves the most recent date for each stock where the 'close' and 
-        'adj_close' values differ, starting from a specified date, and where 
-        the 'dividend_signature' is NULL.
-
-        This function executes a SQL query using a Common Table Expression 
-        (CTE) to rank differences between 'close' and 'adj_close' values for 
-        each 'stock_id', starting from a given date. It selects the most recent 
-        date (highest rank) for each stock where these conditions are met. The 
-        difference between 'close' and 'adj_close' is calculated as 'dividend',
-        and only records without a 'dividend_signature' are considered.
-
-        Args:
-            start_date (str): The starting date from which to search for 
-            differences, in 'YYYY-MM-DD' format.
-
-        Returns:
-            list: A list of tuples, each containing the 'stock_id', the most 
-            recent 'date' (as a string in 'YYYY-MM-DD' format) where 'close' 
-            and 'adj_close' differ, and the calculated 'dividend'.
-        Raises:
-            RuntimeError: If any error occurs during the execution of the SQL 
-            query, with the error message included.
-
-        Example:
-            >>> get_undeclared_dividends('2024-03-15')
-            # This might return: [(28117, '2024-03-19', 10.0), ...] indicating 
-            # the stock_id, date, and dividend where applicable.
-        """
-        try:
-            query = text(f"""
-            WITH RankedDifferences AS (
-                SELECT
-                    stock_id,
-                    date,
-                    close,
-                    adj_close,
-                    dividend_signature,
-                    ROW_NUMBER() OVER (PARTITION BY stock_id ORDER BY date DESC) as rn
-                FROM
-                    dailychart
-                WHERE
-                    close != adj_close AND date > '{start_date}'
-            )
-            SELECT
-                stock_id,
-                date,
-                (close-adj_close) as dividend
-            FROM
-                RankedDifferences
-            WHERE
-                rn = 1 AND dividend_signature IS NULL;
-            """)
-
-            data = self.db_session.execute(query).fetchall()
-
-            return [(
-                stock_id, date.strftime('%Y-%m-%d'), round(dividend,3)
-                ) for stock_id, date, dividend in data]
-
-        except SQLAlchemyError as e:
-            # Rollback the transaction in case of an error
-            self.db_session.rollback()
-            raise RuntimeError(f"An error occurred: {e}") from e
-
-        finally:
-            # Close session in all cases (on success or failure)
-            self.db_session.close()
-
     def get_stocksymbols_by_column(self, column: str) -> pd.DataFrame:
         """
         Retrieves stock symbols from the database, grouped and aggregated by a specified column.
@@ -1156,6 +1084,152 @@ class StockQuery:
                 df.columns = result.keys()  # Set columns only if data is fetched
             else:
                 df = pd.DataFrame(columns=result.keys())  # Create an empty df with column names
+
+            return df
+
+        except SQLAlchemyError as e:
+            # Rollback the transaction in case of an error
+            self.db_session.rollback()
+            raise RuntimeError(f"An error occurred: {e}") from e
+
+        finally:
+            # Close session in all cases (on success or failure)
+            self.db_session.close()
+
+    def fetch_dividend_paying_companies(self, start_date: str, end_date: str) -> pd.DataFrame:
+        """Fetches a list of dividend-paying companies within a specified date range.
+
+        This method queries a database to retrieve the dates and corresponding 
+        stock names of companies that paid dividends within the given date 
+        range. The data is aggregated by date and sorted in descending order. 
+        This function handles database session management, ensuring the session 
+        is closed after execution, whether successful or not.
+
+        Args:
+            start_date (str): The start date for the query range, formatted as 
+            'YYYY-MM-DD'.
+            end_date (str): The end date for the query range, formatted as 
+            'YYYY-MM-DD', exclusive.
+
+        Returns:
+            pd.DataFrame: A DataFrame containing the dates and corresponding 
+            lists of stock names that paid dividends. If no data is found, 
+            returns an empty DataFrame with appropriate column names.
+
+        Raises:
+            RuntimeError: An error occurs during the database operation. The 
+            error from the database is caught as an SQLAlchemyError, and a more 
+            generic RuntimeError is raised, with the original error included 
+            for debugging.
+
+        """
+        try:
+            # Construct the SQL query using safe string formatting
+            query = text(f"""
+            SELECT 
+                d.date,
+                ARRAY_AGG(s.name) AS list_stock_names
+            FROM 
+                dividend d
+            JOIN 
+                stocksymbol s ON d.stock_id = s.id
+            WHERE 
+                d.date >= '{start_date}' AND d.date < '{end_date}'
+            GROUP BY 
+                d.date 
+            ORDER BY 
+                d.date DESC;
+            """)
+
+            result = self.db_session.execute(query)
+            fetched_data = result.fetchall()  # Fetch data once to avoid cursor exhaustion
+
+            # Check if fetched data is not empty
+            if fetched_data:
+                df = pd.DataFrame(fetched_data)
+                df.columns = result.keys()  # Set columns only if data is fetched
+            else:
+                df = pd.DataFrame(columns=result.keys())  # Create an empty df with column names
+
+            return df
+
+        except SQLAlchemyError as e:
+            # Rollback the transaction in case of an error
+            self.db_session.rollback()
+            raise RuntimeError(f"An error occurred: {e}") from e
+
+        finally:
+            # Close session in all cases (on success or failure)
+            self.db_session.close()
+
+    def fetch_dividend_details(self, dividend_date: str) -> pd.DataFrame :
+        """Fetches details of dividends paid on a specific date.
+
+        This method constructs and executes a SQL query to gather data about 
+        dividends, including stock name, symbol, exchange, the dividend amount, 
+        and the closing price on the dividend date. If the closing price is not 
+        available, it defaults to 0.0.
+
+        Args:
+            dividend_date (str): The date for which to fetch dividend details 
+            in the format 'YYYY-MM-DD'.
+
+        Returns:
+            pd.DataFrame: A DataFrame containing the columns 'name', 'symbol', 
+            'exchange', 'dividend', and 'close'. If no data is found for the 
+            given date, returns an empty DataFrame with the same columns.
+
+        Raises:
+            RuntimeError: An error occurred during the database operation. The 
+            specific error is logged, and the database transaction is rolled back.
+
+        """
+        try:
+            # Construct the SQL query using safe string formatting
+            query = text(f"""
+            WITH ClosingPrices AS (
+                SELECT
+                    stock_id,
+                    date,
+                    close
+                FROM dailychart
+            ),
+            DividendData AS (
+                SELECT
+                    hd.stock_id,
+                    hd.date AS dividend_date,
+                    hd.dividend,
+                    ss.name,
+                    ss.symbol,
+                    ss.exchange,
+                    cp.close AS close_on_dividend_date
+                FROM dividend hd
+                JOIN stocksymbol ss ON hd.stock_id = ss.id
+                LEFT JOIN ClosingPrices cp ON hd.stock_id = cp.stock_id AND hd.date = cp.date
+            )
+            SELECT
+                stock_id,
+                name,
+                symbol,
+                exchange,
+                dividend,
+                COALESCE(close_on_dividend_date, 0.0) AS "close"
+            FROM DividendData
+            WHERE dividend_date = '{dividend_date}'
+            ORDER BY name;
+            """)
+
+            result = self.db_session.execute(query)
+            fetched_data = result.fetchall()  # Fetch data once to avoid cursor exhaustion
+
+            # Check if fetched data is not empty
+            if fetched_data:
+                df = pd.DataFrame(fetched_data)
+                df.columns = [col.replace('_', ' ').title() for col in result.keys()]
+                df.set_index('Stock Id', inplace=True)
+            else:
+                df = pd.DataFrame(columns=[col.replace('_', ' ').title() for col in result.keys()])
+                df.set_index('Stock Id', inplace=True)
 
             return df
 

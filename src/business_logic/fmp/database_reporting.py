@@ -11,11 +11,13 @@ implementation details of data retrieval or database interaction.
 
 """
 
-from datetime import datetime
+from datetime import datetime, timedelta
 import pandas as pd
+from sqlalchemy import desc
 from sqlalchemy.exc import SQLAlchemyError
 from PyQt6.QtWidgets import QTableWidget
 from src.models.base import Session
+from src.models.fmp.stock import DailyChartEOD
 from src.dal.fmp.database_query import StockQuery
 from src.services import plot
 pd.set_option('future.no_silent_downcasting', True)
@@ -910,3 +912,155 @@ class StockReporting:
         except Exception as e:
             raise RuntimeError(
                 f"Failed to get sector study data due to an unexpected error: {e}") from e
+
+    def get_dividend_paying_companies(self, start_date: str, end_date: str) -> pd.DataFrame:
+        """Retrieves a DataFrame listing companies that paid dividends within a 
+        specified date range.
+
+        This method utilizes a subcomponent `stock_query` to perform the actual 
+        database query. It handles the higher-level business logic by receiving 
+        input date ranges, delegating the database fetching task to 
+        `fetch_dividend_paying_companies`, and managing exceptions specific to 
+        database and other unexpected errors.
+
+        Args:
+            start_date (str): The start date for the query, formatted as 
+            'YYYY-MM-DD'.
+            end_date (str): The end date for the query, formatted as 
+            'YYYY-MM-DD', exclusive.
+
+        Returns:
+            pd.DataFrame: A DataFrame with each row representing a date and the 
+            corresponding list of stock names that paid dividends on that date. 
+            If no records are found, the DataFrame will be empty but with the 
+            appropriate column names set.
+
+        Raises:
+            RuntimeError: An error occurs during the database operation. Errors 
+            specifically from the database are caught as SQLAlchemyError and 
+            re-raised as RuntimeError with an appropriate message. Other, 
+            non-specific exceptions are also caught and re-raised as 
+            RuntimeError, ensuring that any issue during the fetching process 
+            is communicated clearly.
+
+        """
+        try:
+            # Fetch dividend-paying companies
+            df = self.stock_query.fetch_dividend_paying_companies(start_date, end_date)
+
+            return df
+
+        except SQLAlchemyError as e:
+            raise RuntimeError(
+                f"Failed to get dividend by date due to database error: {e}") from e
+        except Exception as e:
+            raise RuntimeError(
+                f"Failed to get dividend by date due to an unexpected error: {e}") from e
+
+    def get_dividend_details(self, table_widget: QTableWidget,
+        dividend_date: str) -> None:
+        """Retrieves and displays dividend details for a specified date in a Qt table widget.
+
+        This method calls another method to fetch dividend details as a 
+        DataFrame, which it then displays in the provided QTableWidget using a 
+        helper function. The function handles database-related errors and 
+        general exceptions by raising a RuntimeError with an appropriate 
+        message.
+
+        Args:
+            table_widget (QTableWidget): The Qt table widget where the dividend 
+            details will be displayed.
+            dividend_date (str): The date for which dividend details are to be 
+            fetched, formatted as 'YYYY-MM-DD'.
+
+        Raises:
+            RuntimeError: An error occurred during the database operation or 
+            another unexpected error, with the specific issue detailed in the 
+            exception message.
+
+        """
+        try:
+            # Fetch and display dividend details
+            df = self.stock_query.fetch_dividend_details(dividend_date)
+
+            plot.populate_tablewidget_with_df(table_widget, df)
+
+        except SQLAlchemyError as e:
+            raise RuntimeError(
+                f"Failed to get dividend details for a date due to database error: {e}") from e
+        except Exception as e:
+            raise RuntimeError(
+                f"Failed to get dividend details for a date due to an unexpected error: {e}") from e
+
+    def generate_dividend_analysis(self, day_date: str, stock_id: int):
+        """
+        Generates a report analyzing dividend payouts relative to stock price 
+        adjustments around a specified date for a given stock. This method 
+        queries the database for end-of-day stock prices and calculates 
+        differences in closing and adjusted closing prices to infer dividend 
+        payouts.
+
+        Args:
+            day_date (str): The date for which the dividend data is to be 
+            processed, formatted as 'YYYY-MM-DD'.
+            stock_id (int): The unique identifier for the stock.
+
+        Returns:
+            Tuple[str, datetime.date]: A tuple containing:
+                - An HTML string that represents a table with columns for date, 
+                close, adjusted close, and dividend observations.
+                - The date of the previous close.
+                - The dividend computed by FMP (close - adj_close)
+
+        Raises:
+            ValueError: If the `day_date` string is improperly formatted.
+            SQLAlchemyError: If there is an issue querying the database.
+
+        """
+        # Convert input date string to datetime object
+        day_date = datetime.strptime(day_date, '%Y-%m-%d').date()
+
+        # Determine the date of the previous close
+        if day_date.weekday() == 0:  # Monday
+            eve_date = day_date - timedelta(days=3)
+        else:
+            eve_date = day_date - timedelta(days=1)
+
+        # Query for stock close prices around the dividend date
+        daily_closes = self.db_session.query(
+            DailyChartEOD.date, DailyChartEOD.close, DailyChartEOD.adj_close
+        ).filter(
+            DailyChartEOD.stock_id == stock_id,
+            DailyChartEOD.date <= day_date,
+            DailyChartEOD.date > day_date - timedelta(days=8),
+        ).order_by(desc(DailyChartEOD.date)).all()
+
+        # Process each closing price record found
+        data = []
+        for date, close, adj_close in daily_closes:
+            observation = ''
+            if date == eve_date:
+                gap = round(close - adj_close, 2)
+                observation = f"<-- {gap} {'Problem !' if gap == 0 else ''}"
+
+            data.append(
+                {'date': date,
+                 '__close__': close,
+                 '__adj. close__': adj_close,
+                 'dividend computed': observation})
+
+        output_df = pd.DataFrame(
+            data, columns=['date', '__close__', '__adj. close__', 'dividend computed'])
+
+        # Table formatting
+        style = """
+        <style>
+            th, td {
+                font-size: 14px;
+                text-align: center;
+            }
+        </style>
+        """
+        html_output = style + output_df.to_html(index=False)
+
+        return html_output, eve_date, gap

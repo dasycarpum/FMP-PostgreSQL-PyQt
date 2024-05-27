@@ -17,14 +17,14 @@ from datetime import datetime, timedelta
 import csv
 import re
 from dotenv import load_dotenv
-from sqlalchemy import func, desc
+from sqlalchemy import func, text
 from sqlalchemy.orm import aliased
 from sqlalchemy.exc import SQLAlchemyError
-from PyQt6.QtCore import QObject, pyqtSignal
+from PyQt6.QtCore import QObject, pyqtSignal, QCoreApplication
 from src.models.base import Session
-from src.models.fmp.stock import StockSymbol, DailyChartEOD, HistoricalDividend
+from src.models.fmp.stock import StockSymbol, DailyChartEOD
 from src.services.api import get_jsonparsed_data
-from src.services.date import generate_business_time_series
+from src.services.date import generate_business_time_series, parse_date
 from src.services.sql import convert_table_to_hypertable
 from src.dal.fmp.database_operation import DBManager, StockManager
 from src.dal.fmp.database_query import StockQuery
@@ -331,7 +331,7 @@ class StockService(QObject):
                 f"Failed to fetch company profiles due to an unexpected error: {e}") from e
 
     def fetch_daily_chart_for_period(self, symbol: str, start_date: str,
-        end_date:str, update:bool = True) -> None:
+        end_date:str, operation:str, stock_id: int = 0) -> None:
         """
         Fetches daily chart data for a given symbol and period, and inserts it 
         into the database.
@@ -348,8 +348,8 @@ class StockService(QObject):
             symbol (str): The stock symbol for which to retrieve historical price data.
             start_date (str): The start date for the period of interest in YYYY-MM-DD format.
             end_date (str): The end date for the period of interest in YYYY-MM-DD format.
-            update (bool): Choice between updating actual data into the 
-            database or inserting new data.
+            operation (str): Choice between updating actual data into the 
+            database or inserting new data or updating adjusted close.
 
         Raises:
             RuntimeError: An error occurred while updating the daily chart due 
@@ -364,13 +364,18 @@ class StockService(QObject):
             # Data recovery
             data = get_jsonparsed_data(f"https://financialmodelingprep.com/api/v3/historical-price-full/{symbol}?from={start_date}&to={end_date}&apikey={API_KEY_FMP}") # pylint: disable=line-too-long
 
-            if update:
-                # Update last data into the database and insert new data
-                stock_manager.update_daily_chart_data(data)
-                stock_manager.insert_daily_chart_data(data)
-            else:
-                # Only inserting new data into the database (historical data)
-                stock_manager.insert_daily_chart_data(data)
+            if data and 'historical' in data:
+                if operation == 'update_recent_data':
+                    # Update last data into the database and insert new data
+                    stock_manager.update_daily_chart_data(data)
+                    stock_manager.insert_daily_chart_data(data)
+                elif operation == 'insert':
+                    # Only inserting new data into the database (historical data)
+                    stock_manager.insert_daily_chart_data(data)
+                elif operation == 'update_adj_close':
+                    # Update adjusted close price into the database
+                    stock_manager.update_daily_chart_by_stock(
+                        stock_id, data['historical'], start_date, end_date)
 
         except SQLAlchemyError as e:
             raise RuntimeError(
@@ -753,7 +758,7 @@ class StockService(QObject):
                     try:
                         self.fetch_daily_chart_for_period(symbol,
                             current_start_date.strftime('%Y-%m-%d'),
-                            current_end_date.strftime('%Y-%m-%d'), False)
+                            current_end_date.strftime('%Y-%m-%d'), 'insert')
                     except Exception as api_error:
                         print(f"Error fetching historical daily charts for {symbol} from {current_start_date} to {current_end_date}: {api_error}") # pylint: disable=line-too-long
                     # pylint: enable=broad-except
@@ -838,7 +843,7 @@ class StockService(QObject):
 
                 # Fetch daily chart for period
                 self.fetch_daily_chart_for_period(
-                    symbol,start_date_str, end_date_str, True)
+                    symbol,start_date_str, end_date_str, 'update_recent_data')
 
                 # Respect the rate limit after each call
                 sleep_time = 60 / calls_per_minute
@@ -851,93 +856,74 @@ class StockService(QObject):
             except Exception as e: # pylint: disable=broad-except
                 print(f"Unexpected error for {symbol}: {e}")
 
-    def process_and_update_dividends_by_date(self, day_date: str) -> None:
+    def fetch_daily_charts_by_stock(self, stock_id: int, symbol:str,
+        calls_per_minute: int = 300) -> None:
         """
-        Processes dividends for stocks based on a specified date, suggesting an 
-        eve date for adjustment.
-        
-        This function retrieves the dividends for stocks on the given date, 
-        then suggests an eve date for each stock. The user is asked to confirm 
-        the suggested eve date or to provide a new date. If the suggested date 
-        is confirmed, an update operation is performed using `stock_manager.
-        update_daily_chart_adj_close_for_dividend`. If a new date is provided,
-        the function attempts to parse it and, upon success, performs the 
-        update operation with the new date. The user can exit the process at 
-        any time by entering 'exit' when prompted for a new date.
+        Fetches and processes daily chart data for a specified stock over a 
+        span of years, dividing the requests to adhere to API rate limits.
+
+        This function retrieves the earliest and latest dates of daily chart 
+        data available for a stock, then iteratively fetches the data in chunks 
+        based on a defined period in years, respecting the API's rate limits.
 
         Args:
-            day_date (str): The date for which dividends need to be processed, 
-            in 'YYYY-MM-DD' format.
+            stock_id (int): The unique identifier for the stock.
+            symbol (str): The stock symbol.
+            calls_per_minute (int): The maximum number of API calls allowed per 
+            minute. Defaults to 300.
 
-        Returns:
-            None: This function does not return any value.
-
-        Note:
-            - The function will immediately exit if no dividends are found for 
-            the given date.
-            - An 'Invalid date format' message is displayed if the user enters 
-            an incorrect date format when prompted for a new date.
-            - If the user's response to the eve date confirmation is neither 
-            'y' nor 'n', the function will exit, indicating an invalid response.
+        Raises:
+            ValueError: If there is an error executing the database query.
+            RuntimeError: If there is an unexpected error during the fetching process.
 
         """
-        # Initialize StockManager with the database session
-        stock_manager = StockManager(self.db_session)
+        period_years = 5
 
-        day_date = datetime.strptime(day_date, '%Y-%m-%d').date()
+        try:
+            # Determine the minimum and maximum dates for the stock data available in the database.
+            query = text(f"""
+                SELECT MIN(date), MAX(date) FROM dailychart
+                WHERE stock_id = {stock_id};
+                """)
 
-        daily_dividends = self.db_session.query(
-            HistoricalDividend.stock_id, HistoricalDividend.dividend).filter(
-                HistoricalDividend.date == day_date).all()
+            result = self.db_session.execute(query).fetchall()
+            (start_date, end_date), = result
 
-        if not daily_dividends:
-            print("No dividends found for the specified date.")
-            return
+            start_date = parse_date(start_date) if isinstance(start_date, str) else start_date
+            end_date = parse_date(end_date) if isinstance(end_date, str) else end_date
 
-        for stock_id, dividend in daily_dividends:
-            print(stock_id, dividend)
-            if day_date.weekday() == 0:  # 0 = Monday
-                eve_date = day_date - timedelta(days=3)
-            else:
-                eve_date = day_date - timedelta(days=1)
+            # 5-year stage loop
+            current_start_date = start_date
+            while current_start_date < end_date:
+                current_end_date = min(
+                    current_start_date + timedelta(days=365 * period_years), end_date)
 
-            daily_closes = self.db_session.query(
-                DailyChartEOD.date, DailyChartEOD.close, DailyChartEOD.adj_close).filter(
-                    DailyChartEOD.stock_id == stock_id,
-                    DailyChartEOD.date <= day_date,
-                    DailyChartEOD.date > day_date - timedelta(8),
-            ).order_by(desc(DailyChartEOD.date)).all()
+                self.update_signal.emit(
+                    f"Adjusted closing update in dailychart -> processing {symbol} from {current_start_date.strftime('%Y-%m-%d')} to {current_end_date.strftime('%Y-%m-%d')} ..."# pylint: disable=line-too-long
+                )
+                # Force the event loop to process the emitted signal
+                QCoreApplication.processEvents()
 
-            for date, close, adj_close in daily_closes:
-                if date == eve_date:
-                    gap = round(close - adj_close, 2)
-                    print(date, close, adj_close, ' <-- ', gap, ('Problem !' if gap == 0 else ''))
-                else:
-                    print(date, close, adj_close)
+                # pylint: disable=broad-except
+                try:
+                    self.fetch_daily_chart_for_period(
+                        symbol,
+                        current_start_date.strftime('%Y-%m-%d'),
+                        current_end_date.strftime('%Y-%m-%d'),
+                        'update_adj_close',
+                        stock_id)
+                except Exception as api_error:
+                    print(f"Error fetching historical daily charts for {symbol} from {current_start_date} to {current_end_date}: {api_error}") # pylint: disable=line-too-long
+                # pylint: enable=broad-except
+                current_start_date = current_end_date + timedelta(days=1)
 
-            print("Suggested date :", eve_date)
+                # Respect the rate limit after each call
+                sleep_time = 60 / calls_per_minute
+                time.sleep(sleep_time)
 
-            # Ask the user if he agrees with the suggested date
-            response = input("Accept the suggested date? (y/n): ").strip().lower()
-            if response == 'y':
-                stock_manager.update_daily_chart_adj_close_for_dividend(
-                    stock_id, eve_date.strftime('%Y-%m-%d'), dividend)
-            elif response == 'n':
-                while True:  # Loop to manage the user's response until
-                             # a valid date or an 'exit' is obtained
-                    new_date = input(
-                        "Enter a new date in 'YYYY-MM-DD' format or type 'exit' to stop: "
-                        ).strip().lower()
-                    if new_date == 'exit':
-                        return  # Exit function immediately
-                    else:
-                        try:
-                            day_date = datetime.strptime(new_date, '%Y-%m-%d').date()
-                            stock_manager.update_daily_chart_adj_close_for_dividend(
-                                stock_id, day_date.strftime('%Y-%m-%d'), dividend)
-                            break  # Exit while loop after updating with new date
-                        except ValueError:
-                            print("Invalid date format. Please try again.")
-            else:
-                print("Invalid response. Please answer 'y' or 'n'.")
-                return  # Immediate exit if answer is neither 'y' nor 'n
+        except SQLAlchemyError as db_error:
+            raise ValueError(
+                "Database error occurred while fetching daily charts by stock.") from db_error
+        except Exception as e:
+            raise RuntimeError(
+                f"Failed to fetch daily charts by stock due to an unexpected error: {e}") from e
