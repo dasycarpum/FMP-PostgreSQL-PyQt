@@ -547,54 +547,71 @@ class StockManager:
         finally:
             self.db_session.close()
 
-    def update_daily_chart_adj_close(self, stock_id: int, data: dict):
-        """Updates the adjusted close price in the database for a given stock.
+    def update_daily_chart_by_stock(self, stock_id: int, historical_data: list,
+        start_date: str, end_date: str):
+        """Updates daily chart data by deleting existing records within a date 
+        range and inserting new ones for a specific stock.
 
-        This method iterates through each entry in the 'historical' key of the 
-        'data' dictionary. It parses the date to match the database's format, 
-        then constructs and executes an SQL update statement for each record. 
-        The update operation targets the DailyChartEOD table, specifically 
-        updating the 'adj_close' field where the 'stock_id' and 
-        date match the provided data. The database transaction is committed if 
-        all operations succeed, otherwise, it is rolled back in case of an 
-        error.
+        This function first deletes all existing entries in the DailyChartEOD 
+        table for the specified stock_id within the provided start_date and 
+        end_date. It then parses and inserts new records into the DailyChartEOD
+        table from the provided historical_data list. Each record in 
+        historical_data should be a dictionary that includes keys for date, 
+        open, high, low, close, adj_close, volume, unadjusted_volume, change, 
+        change_percent, and vwap, representing different aspects of stock 
+        performance on a particular day.
 
         Args:
-            stock_id (int): The unique identifier of the stock to update.
-            data (dict): A dictionary containing historical price data. 
-            Expected to have a key 'historical' which contains a list of 
-            dictionaries, each with keys 'date' and 'adjClose'.
+            stock_id (int): The unique identifier for the stock to update.
+            start_date (str): The start date for the range of records to 
+            delete, formatted as 'YYYY-MM-DD'.
+            end_date (str): The end date for the range of records to delete, 
+            formatted as 'YYYY-MM-DD'.
+            historical_data (list of dict): A list of dictionaries where each 
+            dictionary contains data for one day of stock activity.
 
         Raises:
-            RuntimeError: An error is raised if there is a database-related 
+            RuntimeError: An exception is raised if there is a database-related 
             issue during the update operations. The original error is 
             encapsulated within the RuntimeError.
-
         """
         try:
-            for item in data["historical"]:
-                # Parse the date field to ensure it matches the Date format in the database
-                date_parsed = parse_date(item.get("date"))
+             # Parse the start and end dates
+            start_date_parsed = parse_date(start_date)
+            end_date_parsed = parse_date(end_date)
 
-                # Prepare the insertion statement with the found stock ID
-                stmt = update(DailyChartEOD).where(
-                        DailyChartEOD.stock_id == stock_id,
-                        DailyChartEOD.date == date_parsed
-                    ).values(
-                        adj_close=item.get("adjClose"),
-                    )
+            # Delete existing records for the stock within the specified date range
+            self.db_session.query(DailyChartEOD).filter(
+                DailyChartEOD.stock_id == stock_id,
+                DailyChartEOD.date >= start_date_parsed,
+                DailyChartEOD.date <= end_date_parsed
+            ).delete(synchronize_session='fetch')
 
-                # SQLAlchemy's `execute` method is used to execute the update statement
-                self.db_session.execute(stmt)
+            # Prepare new records from historical data
+            new_records = [DailyChartEOD(
+                stock_id=stock_id,
+                date=parse_date(item['date']),
+                open=item.get("open"),
+                high=item.get("high"),
+                low=item.get("low"),
+                close=item.get("close"),
+                adj_close=item.get("adjClose"),
+                volume=item.get("volume"),
+                unadjusted_volume=item.get("unadjustedVolume"),
+                change=item.get("change"),
+                change_percent=item.get("changePercent"),
+                vwap=item.get("vwap")
+                ) for item in historical_data]
 
+            self.db_session.bulk_save_objects(new_records)
             self.db_session.commit()
 
+        # Insert new records
         except SQLAlchemyError as e:
             self.db_session.rollback()  # Rollback in case of error
             raise RuntimeError(f"Database error occurred: {e}") from e
         finally:
             self.db_session.close()
-
 
     def insert_historical_dividend(self, data):
         """Inserts historical dividend data for a specified stock symbol into the database.

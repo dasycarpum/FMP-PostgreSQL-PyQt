@@ -24,7 +24,7 @@ from PyQt6.QtCore import QObject, pyqtSignal, QCoreApplication
 from src.models.base import Session
 from src.models.fmp.stock import StockSymbol, DailyChartEOD
 from src.services.api import get_jsonparsed_data
-from src.services.date import generate_business_time_series
+from src.services.date import generate_business_time_series, parse_date
 from src.services.sql import convert_table_to_hypertable
 from src.dal.fmp.database_operation import DBManager, StockManager
 from src.dal.fmp.database_query import StockQuery
@@ -364,16 +364,18 @@ class StockService(QObject):
             # Data recovery
             data = get_jsonparsed_data(f"https://financialmodelingprep.com/api/v3/historical-price-full/{symbol}?from={start_date}&to={end_date}&apikey={API_KEY_FMP}") # pylint: disable=line-too-long
 
-            if operation == 'update_recent_data':
-                # Update last data into the database and insert new data
-                stock_manager.update_daily_chart_data(data)
-                stock_manager.insert_daily_chart_data(data)
-            elif operation == 'insert':
-                # Only inserting new data into the database (historical data)
-                stock_manager.insert_daily_chart_data(data)
-            elif operation == 'update_adj_close':
-                # Update adjusted close price into the database
-                stock_manager.update_daily_chart_adj_close(stock_id, data)
+            if data and 'historical' in data:
+                if operation == 'update_recent_data':
+                    # Update last data into the database and insert new data
+                    stock_manager.update_daily_chart_data(data)
+                    stock_manager.insert_daily_chart_data(data)
+                elif operation == 'insert':
+                    # Only inserting new data into the database (historical data)
+                    stock_manager.insert_daily_chart_data(data)
+                elif operation == 'update_adj_close':
+                    # Update adjusted close price into the database
+                    stock_manager.update_daily_chart_by_stock(
+                        stock_id, data['historical'], start_date, end_date)
 
         except SQLAlchemyError as e:
             raise RuntimeError(
@@ -878,19 +880,19 @@ class StockService(QObject):
         period_years = 5
 
         try:
+            # Determine the minimum and maximum dates for the stock data available in the database.
             query = text(f"""
-            SELECT MIN(date), MAX(date) FROM dailychart
-            WHERE stock_id = {stock_id};
-            """)
+                SELECT MIN(date), MAX(date) FROM dailychart
+                WHERE stock_id = {stock_id};
+                """)
 
             result = self.db_session.execute(query).fetchall()
             (start_date, end_date), = result
 
-            start_date = datetime.strptime(
-                start_date, '%Y-%m-%d').date() if isinstance(start_date, str) else start_date
-            end_date = datetime.strptime(
-                end_date, '%Y-%m-%d').date() if isinstance(end_date, str) else end_date
+            start_date = parse_date(start_date) if isinstance(start_date, str) else start_date
+            end_date = parse_date(end_date) if isinstance(end_date, str) else end_date
 
+            # 5-year stage loop
             current_start_date = start_date
             while current_start_date < end_date:
                 current_end_date = min(
