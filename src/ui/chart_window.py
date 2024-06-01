@@ -15,7 +15,7 @@ from PyQt6.QtWidgets import QMainWindow
 from src.models.base import Session
 import src.ui.chart_window_UI as window
 from src.business_logic.fmp.database_reporting import StockReporting
-from src.services.plot import draw_a_plotly_candlestick_chart
+from src.services import plot, chart
 
 
 class ChartWindow(QMainWindow, window.Ui_MainWindow):
@@ -220,5 +220,13 @@ class ChartWindow(QMainWindow, window.Ui_MainWindow):
             else:
                 df.sort_index(inplace=True)
 
+            # Optimal moving averages
+            if len(df) > 60:
+                optimal_days = chart.calculate_optimal_moving_averages(df['close'])
+                formatted_string = ', '.join(optimal_days[:-1]) + ' or ' + optimal_days[-1]
+                self.textBrowser.setText(f"Optimal MA : {formatted_string} days")
+            else:
+                self.textBrowser.clear()
+
             # Draw a candlestick chart
-            draw_a_plotly_candlestick_chart(self.verticalLayout_chart, df, self.setting)
+            plot.draw_a_plotly_candlestick_chart(self.verticalLayout_chart, df, self.setting)

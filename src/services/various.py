@@ -31,6 +31,13 @@ def safe_convert_to_int(value, default=0):
     except (ValueError, TypeError):
         return default
 
+def safe_divide(numerator, denominator):
+    """Safely divide two numbers and return 0 if the denominator is zero."""
+    if denominator == 0:
+        return 0
+    else:
+        return numerator / denominator
+
 class CheckableComboBox(QComboBox):
     """
     A subclass of QComboBox that allows items within the dropdown to be checkable.
