@@ -70,6 +70,7 @@ class ChartWindow(QMainWindow, window.Ui_MainWindow):
 
     def setup_charting(self) -> None:
         """Set up the initial charting configuration by initializing attributes"""
+        self.lineEdit_search.setFocus()
         self.db_session = Session()
         self.stock_reporting = StockReporting(self.db_session)
         self.stock_dict = self.stock_reporting.get_stock_dictionary()
@@ -223,8 +224,15 @@ class ChartWindow(QMainWindow, window.Ui_MainWindow):
             # Optimal moving averages
             if len(df) > 60:
                 optimal_days = chart.calculate_optimal_moving_averages(df['close'])
+                optimal_stds =chart.calculate_optimal_stds(df, optimal_days)
+
+                optimal_days = list(map(str, optimal_days))
                 formatted_string = ', '.join(optimal_days[:-1]) + ' or ' + optimal_days[-1]
                 self.textBrowser.setText(f"Optimal MA : {formatted_string} days")
+
+                optimal_stds = list(map(str, optimal_stds))
+                formatted_string = ', '.join(optimal_stds[:-1]) + ' or ' + optimal_stds[-1]
+                self.textBrowser.append(f"Optimal std : {formatted_string} days")
             else:
                 self.textBrowser.clear()
 
